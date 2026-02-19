@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOSCO ELEVATE — MEB</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a1628 0%, #1a2a4a 50%, #0d1f3c 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            color: #ffffff;
+        }
+
+        .header h2 {
+            font-size: 18px;
+            font-weight: 300;
+            letter-spacing: 4px;
+            color: #4a9eff;
+            margin-top: 4px;
+        }
+
+        .header .subtitle {
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: #6b7fa3;
+            margin-top: 12px;
+            text-transform: uppercase;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 32px;
+            backdrop-filter: blur(10px);
+            margin-bottom: 24px;
+        }
+
+        .login-card .welcome {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .login-card .welcome-sub {
+            font-size: 13px;
+            color: #8899b5;
+            margin-bottom: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #8899b5;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            border-color: #4a9eff;
+        }
+
+        .form-group input::placeholder {
+            color: #5a6a85;
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            font-size: 13px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #8899b5;
+            cursor: pointer;
+        }
+
+        .remember-me input[type="checkbox"] {
+            accent-color: #4a9eff;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .forgot-password {
+            color: #4a9eff;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .forgot-password:hover {
+            text-decoration: underline;
+        }
+
+        .btn-signin {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #4a9eff, #2563eb);
+            border: none;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: opacity 0.3s, transform 0.2s;
+        }
+
+        .btn-signin:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-signin:active {
+            transform: translateY(0);
+        }
+
+        .quick-access {
+            margin-top: 24px;
+        }
+
+        .quick-access h3 {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #6b7fa3;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .access-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .access-btn {
+            flex: 1;
+            padding: 16px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.3s, border-color 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .access-btn:hover {
+            background: rgba(74, 158, 255, 0.1);
+            border-color: rgba(74, 158, 255, 0.3);
+        }
+
+        .access-btn .role {
+            font-size: 13px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+
+        .access-btn .dept {
+            font-size: 11px;
+            color: #6b7fa3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SOSCO</h1>
+            <h2>ELEVATE</h2>
+            <div class="subtitle">MIDDLE EAST BRIGADE &mdash; MEB</div>
+        </div>
+
+        <div class="login-card">
+            <div class="welcome">Welcome back</div>
+            <div class="welcome-sub">Sign in to access your dashboard</div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" placeholder="john.smith" autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" placeholder="Enter your password" autocomplete="current-password">
+                </div>
+
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox" checked> Remember me
+                    </label>
+                    <a href="#" class="forgot-password">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn-signin">Sign In</button>
+            </form>
+        </div>
+
+        <div class="quick-access">
+            <h3>Quick Access</h3>
+            <div class="access-buttons">
+                <a href="#" class="access-btn">
+                    <div class="role">ADMIN</div>
+                    <div class="dept">HO &middot; MEB</div>
+                </a>
+                <a href="#" class="access-btn">
+                    <div class="role">MANAGER</div>
+                    <div class="dept">WHM</div>
+                </a>
+                <a href="#" class="access-btn">
+                    <div class="role">EMPLOYEE</div>
+                    <div class="dept">WHM</div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Sign in functionality coming soon.');
+        });
+    </script>
+</body>
+</html>
