@@ -13,7 +13,7 @@ living reference for project structure, conventions, and workflows as the codeba
 Sosco-elevate-/
 ├── CLAUDE.md                    # AI assistant guidance (this file)
 └── sosco-elevate/
-    ├── index.html               # Login page (static HTML/CSS, Apple-style UI)
+    ├── index.html               # Login page (static HTML/CSS, iOS system colors, light/dark)
     ├── manifest.webmanifest     # Web app manifest (home-screen install)
     └── icons/
         ├── icon.svg             # App icon source (1024×1024, full-bleed)
