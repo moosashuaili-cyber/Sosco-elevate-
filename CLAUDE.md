@@ -13,8 +13,11 @@ living reference for project structure, conventions, and workflows as the codeba
 Sosco-elevate-/
 ├── CLAUDE.md                    # AI assistant guidance (this file)
 └── sosco-elevate/
-    ├── index.html               # Login page (static HTML/CSS, iOS system colors, light/dark)
+    ├── index.html               # App shell + all styles (iOS system colors, light/dark)
     ├── manifest.webmanifest     # Web app manifest (home-screen install)
+    ├── js/
+    │   ├── store.js             # Data layer + demo accounts (localStorage; swap for Firebase)
+    │   └── app.js               # Screens: login, manager exams/builder/results, employee exams/timer/score
     └── icons/
         ├── icon.svg             # App icon source (1024×1024, full-bleed)
         ├── apple-touch-icon.png # 180×180, iPhone/iPad home screen
@@ -25,17 +28,15 @@ Sosco-elevate-/
 
 ## Getting Started
 
-This repository does not yet have a build system, dependencies, or runnable code.
-When the project is scaffolded, document the setup steps here:
+No build step or dependencies. Open `sosco-elevate/index.html` in a browser.
 
-```bash
-# Example (update when applicable):
-# git clone <repo-url>
-# cd Sosco-elevate-
-# <install dependencies command>
-# <build command>
-# <run command>
-```
+Demo accounts (testing only, defined in `js/store.js`):
+`admin`/`admin123`, `manager`/`manager123`, `employee`/`employee123`
+(also `employee2`, `employee3` with `employee123`).
+
+Data is stored in the browser's localStorage, so managers and employees only
+share exams on the same browser. Moving to Firebase (Auth + Firestore) means
+re-implementing the functions in `js/store.js` with the same names and shapes.
 
 ## Development Workflow
 
