@@ -11,8 +11,14 @@ living reference for project structure, conventions, and workflows as the codeba
 
 ```
 Sosco-elevate-/
-├── CLAUDE.md          # AI assistant guidance (this file)
-└── (awaiting initial project setup)
+├── CLAUDE.md                    # AI assistant guidance (this file)
+└── sosco-elevate/
+    ├── index.html               # Login page (static HTML/CSS, Apple-style UI)
+    ├── manifest.webmanifest     # Web app manifest (home-screen install)
+    └── icons/
+        ├── icon.svg             # App icon source (1024×1024, full-bleed)
+        ├── apple-touch-icon.png # 180×180, iPhone/iPad home screen
+        └── icon-192.png, icon-512.png
 ```
 
 > **Note:** Update this section as directories and files are added.
