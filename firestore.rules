@@ -1,0 +1,101 @@
+rules_version = '2';
+
+// Security rules for SOSCO ELEVATE.
+// Roles come from /users/{uid}.role: 'admin', 'manager' or 'employee'.
+// Admins see and change everything. Managers see their own team (managerId).
+// Employees see only their own reviews, goals and attempts.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function active() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && me().get('active', true) != false;
+    }
+    function isAdmin() { return active() && me().role == 'admin'; }
+    function isManager() { return active() && me().role in ['manager', 'admin']; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function uid() { return request.auth.uid; }
+
+    match /users/{id} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    match /departments/{id} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    match /cycles/{id} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+
+    match /appraisals/{id} {
+      allow read: if isAdmin() || (active() && (resource.data.uid == uid() || resource.data.managerId == uid()));
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        // Employee: fill in the self-assessment, then sign off the finished review.
+        || (active() && resource.data.uid == uid() && (
+              (resource.data.stage == 'self' && request.resource.data.stage in ['self', 'review'] && changed().hasOnly(['self', 'stage']))
+           || (resource.data.stage == 'ack' && request.resource.data.stage == 'done' && changed().hasOnly(['ack', 'stage']))))
+        // Manager: write the review for someone on their team (not themselves).
+        || (active() && resource.data.managerId == uid() && resource.data.uid != uid()
+            && resource.data.stage in ['self', 'review'] && request.resource.data.stage in ['self', 'review', 'ack']
+            && changed().hasOnly(['review', 'stage']));
+    }
+
+    match /goals/{id} {
+      allow read: if isAdmin() || (active() && (resource.data.uid == uid() || resource.data.managerId == uid()));
+      allow create: if isAdmin() || (isManager() && request.resource.data.managerId == uid());
+      allow delete: if isAdmin() || (isManager() && resource.data.managerId == uid());
+      allow update: if isAdmin()
+        || (isManager() && resource.data.managerId == uid() && request.resource.data.managerId == uid())
+        // Employee: log progress only.
+        || (active() && resource.data.uid == uid() && changed().hasOnly(['actual', 'updates']));
+    }
+
+    match /exams/{id} {
+      allow read: if isAdmin() || (active() && (resource.data.createdBy == uid() || uid() in resource.data.assignedTo));
+      allow create: if isManager() && request.resource.data.createdBy == uid();
+      allow update, delete: if isAdmin() || (isManager() && resource.data.createdBy == uid());
+    }
+
+    // Correct answers live apart from the exam, so people taking it can't read them.
+    match /examKeys/{id} {
+      allow read, update, delete: if isAdmin() || (isManager() && resource.data.createdBy == uid());
+      allow create: if isManager() && request.resource.data.createdBy == uid();
+    }
+
+    match /attempts/{id} {
+      function exam(examId) { return get(/databases/$(database)/documents/exams/$(examId)).data; }
+
+      allow read: if isAdmin() || (active() && (resource.data.uid == uid() || resource.data.managerId == uid()));
+
+      // Start an exam: only your own, only one assigned to you, only inside its time window.
+      allow create: if active()
+        && id == request.resource.data.examId + '_' + uid()
+        && request.resource.data.uid == uid()
+        && uid() in exam(request.resource.data.examId).assignedTo
+        && request.resource.data.managerId == exam(request.resource.data.examId).createdBy
+        && request.time.toMillis() >= exam(request.resource.data.examId).opensAt
+        && request.time.toMillis() <= exam(request.resource.data.examId).dueAt
+        && !('score' in request.resource.data);
+
+      allow update: if isAdmin()
+        // Taker: record answers until submitted, up to two minutes past the due time.
+        || (active() && resource.data.uid == uid()
+            && resource.data.get('submittedAt', null) == null
+            && changed().hasOnly(['answers', 'qStartedAt', 'submittedAt'])
+            && request.time.toMillis() <= exam(resource.data.examId).dueAt + 120000)
+        // Exam owner: mark the score, or close an attempt left open after the due time.
+        || (active() && resource.data.managerId == uid()
+            && changed().hasOnly(['answers', 'submittedAt', 'score', 'total', 'scoredAt']));
+
+      allow delete: if isAdmin() || (active() && resource.data.managerId == uid());
+    }
+  }
+}

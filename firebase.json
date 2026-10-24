@@ -1,0 +1,9 @@
+{
+  "hosting": {
+    "public": "sosco-elevate",
+    "ignore": ["firebase.json", "**/.*"]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

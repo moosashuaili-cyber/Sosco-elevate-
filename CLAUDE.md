@@ -4,39 +4,44 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Repository Overview
 
-**Sosco-elevate-** is a newly initialized repository. This document will serve as the
-living reference for project structure, conventions, and workflows as the codebase grows.
+**SOSCO ELEVATE** is an employee evaluation app for SOSCO (Middle East Brigade, MEB):
+performance reviews with self-assessment, goals/KPIs, timed exams, and dashboards.
+Plain HTML/CSS/JS with no build step, styled after iOS (system colors, light/dark).
+Data is in Firebase (Auth + Firestore) when configured, otherwise a localStorage demo.
 
 ## Project Structure
 
 ```
 Sosco-elevate-/
 ├── CLAUDE.md                    # AI assistant guidance (this file)
-└── sosco-elevate/
-    ├── index.html               # App shell + all styles (iOS system colors, light/dark)
-    ├── manifest.webmanifest     # Web app manifest (home-screen install)
-    ├── js/
-    │   ├── store.js             # Data layer + demo accounts (localStorage; swap for Firebase)
-    │   └── app.js               # Screens: login, manager exams/builder/results, employee exams/timer/score
-    └── icons/
-        ├── icon.svg             # App icon source (1024×1024, full-bleed)
-        ├── apple-touch-icon.png # 180×180, iPhone/iPad home screen
-        └── icon-192.png, icon-512.png
+├── SETUP.md                     # How to connect Firebase and create the first admin
+├── firebase.json                # Hosting (sosco-elevate/) + Firestore rules
+├── firestore.rules              # Role-based access: admin / manager / employee
+└── sosco-elevate/               # The web app (deployed as-is)
+    ├── index.html               # App shell + all CSS (tokens at the top)
+    ├── manifest.webmanifest     # Home-screen install
+    ├── icons/                   # App icon (SVG source + PNGs)
+    └── js/                      # Classic scripts, loaded in this order:
+        ├── firebase-config.js   # null = demo mode; paste Firebase web config to go live
+        ├── store.js             # Data layer: cache + Demo/Firebase backends + demo seed
+        ├── core.js              # App namespace: helpers, scoring, navigation, render
+        ├── home.js              # Sign-in, setup, employee home, manager/admin dashboard
+        ├── reviews.js           # Review cycles, self-assessment, manager review, sign-off
+        ├── goals.js             # Goals/KPIs and progress logging
+        ├── exams.js             # Timed exams: builder, taking, results
+        ├── people.js            # Team, profiles, admin people & departments
+        └── main.js              # Event wiring and start-up
 ```
-
-> **Note:** Update this section as directories and files are added.
 
 ## Getting Started
 
 No build step or dependencies. Open `sosco-elevate/index.html` in a browser.
 
-Demo accounts (testing only, defined in `js/store.js`):
-`admin`/`admin123`, `manager`/`manager123`, `employee`/`employee123`
-(also `employee2`, `employee3` with `employee123`).
+Demo accounts (demo mode only, seeded in `js/store.js`):
+`admin`/`admin123`, `manager`/`manager123`, `manager2`/`manager123`,
+`employee` … `employee6` / `employee123`. "Reset demo data" on Home restores the seed.
 
-Data is stored in the browser's localStorage, so managers and employees only
-share exams on the same browser. Moving to Firebase (Auth + Firestore) means
-re-implementing the functions in `js/store.js` with the same names and shapes.
+To go live, follow SETUP.md.
 
 ## Development Workflow
 
@@ -92,13 +97,22 @@ re-implementing the functions in `js/store.js` with the same names and shapes.
 
 ## Architecture Notes
 
-> **To be defined.** As the project takes shape, document:
->
-> - High-level architecture (monolith, microservices, serverless, etc.)
-> - Key design decisions and trade-offs
-> - External service dependencies
-> - Database schema or data model overview
-> - API patterns (REST, GraphQL, gRPC, etc.)
+- **Rendering:** each screen is a function in `App.views` returning an HTML string;
+  `App.render()` swaps `#app`. Clicks go through `data-action` (handlers in
+  `App.actions`); `data-action="go" data-view=… data-id=…` navigates.
+- **Data:** screens read `Store.all(c)` / `Store.get(c, id)` and write `Store.put(c, doc)`.
+  Writes update the cache immediately; the backend saves in the background.
+  Firebase mode subscribes with `onSnapshot` queries matching what `firestore.rules`
+  allows for the user's role.
+- **Collections:** `users` (role, deptId, managerId), `departments`, `cycles`
+  (competencies, dates, goalsWeight), `appraisals` (id `cycleId_uid`, stage
+  self → review → ack → done), `goals`, `exams`, `examKeys` (answers, owner-only),
+  `attempts` (id `examId_uid`).
+- **Scoring:** `App.result()` = weighted competency ratings blended with weighted
+  goal ratings by `cycle.goalsWeight`. Exam scores are marked by the exam owner's
+  client in `App.reconcile()`, since only owners can read `examKeys`.
+- When changing who can read or write something, update `firestore.rules` and the
+  queries in `store.js` together.
 
 ## AI Assistant Guidelines
 
