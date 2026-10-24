@@ -1,0 +1,3 @@
+node_modules/
+# Copied from sosco-elevate/js/ai-tasks.js at deploy time
+ai-tasks.js

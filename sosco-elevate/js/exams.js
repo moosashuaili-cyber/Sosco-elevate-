@@ -88,11 +88,17 @@
 
     // ---------- Builder ----------
 
+    const TF_AR = ['صحيح', 'خطأ'];
+
     function newQuestion(type) {
         return type === 'tf'
-            ? { id: Store.uid(), type: 'tf', text: '', options: ['True', 'False'], correct: 0, seconds: 20 }
-            : { id: Store.uid(), type: 'mcq', text: '', options: ['', '', '', ''], correct: 0, seconds: 30 };
+            ? { id: Store.uid(), type: 'tf', text: '', text_ar: '', options: ['True', 'False'], options_ar: TF_AR.slice(), correct: 0, seconds: 20 }
+            : { id: Store.uid(), type: 'mcq', text: '', text_ar: '', options: ['', '', '', ''], options_ar: ['', '', '', ''], correct: 0, seconds: 30 };
     }
+
+    const hasArabic = q => !!(q.text_ar && q.text_ar.trim());
+    const needsArabic = q => q.text.trim() && (!hasArabic(q) || q.options.some((o, j) => o.trim() && !(q.options_ar && (q.options_ar[j] || '').trim())));
+    const ar = text => (text && text.trim() ? `<span class="ar" dir="rtl" lang="ar">${esc(text)}</span>` : '');
 
     function newDraft() {
         const now = Date.now();
@@ -139,13 +145,18 @@
                 <input type="checkbox" class="check" data-assign="${p.id}" ${d.assignedTo.includes(p.id) ? 'checked' : ''}>
                 <span class="grow"><span class="title">${esc(p.name)}</span><span class="sub">${esc(p.jobTitle || '')} · ${esc((A.dept(p.deptId) || {}).code || '')}</span></span></label>`).join('');
 
+        const showAr = A.state.ui.showAr !== false;
         const questions = d.questions.map((q, i) => {
+            const oar = q.options_ar || [];
             const answers = q.type === 'tf'
                 ? q.options.map((o, j) => `<button type="button" class="row opt" data-action="q-correct" data-q="${i}" data-opt="${j}">
-                        <span class="mark ${q.correct === j ? 'on' : ''}">${ICON.check}</span><span class="grow">${o}</span></button>`).join('')
+                        <span class="mark ${q.correct === j ? 'on' : ''}">${ICON.check}</span><span class="grow">${o}${showAr ? ` · ${ar(TF_AR[j])}` : ''}</span></button>`).join('')
                 : q.options.map((o, j) => `<div class="row opt">
                         <button type="button" class="mark ${q.correct === j ? 'on' : ''}" data-action="q-correct" data-q="${i}" data-opt="${j}" aria-label="Mark answer ${LETTERS[j]} as correct">${ICON.check}</button>
-                        <input class="input-plain" id="q-${q.id}-${j}" data-q="${i}" data-opt="${j}" value="${esc(o)}" placeholder="Answer ${LETTERS[j]}">
+                        <div class="opt-texts">
+                            <input class="input-plain" id="q-${q.id}-${j}" data-q="${i}" data-opt="${j}" value="${esc(o)}" placeholder="Answer ${LETTERS[j]}">
+                            ${showAr ? `<input class="input-plain input-ar" dir="rtl" lang="ar" id="q-${q.id}-${j}-ar" data-q="${i}" data-opt-ar="${j}" value="${esc(oar[j] || '')}" placeholder="الإجابة بالعربية">` : ''}
+                        </div>
                         ${q.options.length > 2 ? `<button type="button" class="icon-btn" data-action="q-delopt" data-q="${i}" data-opt="${j}" aria-label="Remove answer ${LETTERS[j]}">${ICON.cross}</button>` : ''}
                     </div>`).join('') + (q.options.length < 6 ? `<button type="button" class="row add-row" data-action="q-addopt" data-q="${i}">${ICON.plus} Add answer</button>` : '');
 
@@ -157,6 +168,7 @@
                     <button type="button" class="${q.type === 'tf' ? 'on' : ''}" data-action="q-type" data-q="${i}" data-type="tf">True / False</button>
                 </div>
                 <textarea class="q-text-input" id="q-${q.id}" data-q="${i}" data-qfield="text" rows="2" placeholder="Type the question">${esc(q.text)}</textarea>
+                ${showAr ? `<textarea class="q-text-input input-ar" dir="rtl" lang="ar" id="q-${q.id}-ar" data-q="${i}" data-qfield="text_ar" rows="2" placeholder="السؤال بالعربية">${esc(q.text_ar || '')}</textarea>` : ''}
                 <div class="hint">Tap the circle next to the correct answer.</div>
                 <div class="group inset">${answers}</div>
                 <div class="timer-row"><span>Time for this question</span>
@@ -191,6 +203,14 @@
             <div class="group">${peopleRows || '<div class="row empty">No one reports to you yet. An admin can add people to your team.</div>'}</div>
 
             <div class="section-label">Questions · ${d.questions.length} · ${fmtSecs(totalSecs)} in total</div>
+            <div class="ai-bar">
+                <button type="button" class="btn btn-ai" data-action="ai-open">${ICON.sparkle} Write Questions with Claude</button>
+                <div class="btn-row even">
+                    <button type="button" class="btn btn-secondary" data-action="ai-translate" ${A.state.ui.translating ? 'disabled' : ''}>${A.state.ui.translating ? 'Translating…' : 'Translate to Arabic'}</button>
+                    <button type="button" class="btn btn-plain" data-action="ar-toggle">${showAr ? 'Hide Arabic' : 'Show Arabic'}</button>
+                </div>
+                ${d.questions.some(needsArabic) ? `<p class="section-foot">${d.questions.filter(needsArabic).length} of ${d.questions.length} questions still need Arabic. Employees see Arabic under each question and answer.</p>` : ''}
+            </div>
             ${questions}
             <button type="button" class="btn btn-secondary" data-action="q-add">${ICON.plus} Add Question</button>
 
@@ -232,7 +252,7 @@
                 const ok = ans.choice === right;
                 const given = ans.choice == null ? 'No answer (time ran out)' : esc(q.options[ans.choice]);
                 return `<div class="d-item"><span class="d-mark ${ok ? 'ok' : 'bad'}">${ok ? ICON.check : ICON.cross}</span>
-                    <div class="grow"><div class="d-q">${i + 1}. ${esc(q.text)}</div>
+                    <div class="grow"><div class="d-q">${i + 1}. ${esc(q.text)}</div>${hasArabic(q) ? `<div class="d-a">${ar(q.text_ar)}</div>` : ''}
                     <div class="d-a">Answered: ${given} · ${Math.round(ans.ms / 1000)} s</div>
                     ${ok || right == null ? '' : `<div class="d-a">Correct: ${esc(q.options[right])}</div>`}</div></div>`;
             }).join('')}</div>`;
@@ -295,6 +315,7 @@
                 <div class="row">When the time runs out, the exam moves to the next question.</div>
                 <div class="row">You can't go back to a question once you leave it.</div>
                 <div class="row">Your score goes to ${esc(from)} when you finish.</div>
+                ${e.questions.some(hasArabic) ? '<div class="row">Questions and answers are shown in English and Arabic. <span class="ar" dir="rtl" lang="ar">الأسئلة والإجابات معروضة بالإنجليزية والعربية.</span></div>' : ''}
             </div>
             <div class="actions">
                 ${reason ? `<p class="section-foot">${reason}</p>` : ''}
@@ -320,15 +341,22 @@
                     <div class="progress"><span style="width:${i / e.questions.length * 100}%"></span></div></div>
                 <div id="timer" aria-live="off">${A.ring(64, 6, 1, 'var(--blue)', q.seconds)}</div>
             </div>
-            <div class="q-type">${q.type === 'tf' ? 'True or false' : 'Choose one answer'}</div>
+            <div class="q-type-row"><span class="q-type">${q.type === 'tf' ? 'True or false' : 'Choose one answer'}</span>
+                ${hasArabic(q) ? `<button class="lang-toggle ${showArabic() ? 'on' : ''}" data-action="ar-run-toggle" aria-pressed="${showArabic()}">العربية</button>` : ''}</div>
             <h2 class="q-text">${esc(q.text)}</h2>
+            ${showArabic() && hasArabic(q) ? `<p class="q-text-ar" dir="rtl" lang="ar">${esc(q.text_ar)}</p>` : ''}
             <div class="choices">
                 ${q.options.map((o, j) => `<button class="choice ${pick === j ? 'on' : ''}" data-action="exam-pick" data-opt="${j}" aria-pressed="${pick === j}">
-                    <span class="letter">${q.type === 'tf' ? (j === 0 ? 'T' : 'F') : LETTERS[j]}</span><span class="grow">${esc(o)}</span></button>`).join('')}
+                    <span class="letter">${q.type === 'tf' ? (j === 0 ? 'T' : 'F') : LETTERS[j]}</span>
+                    <span class="grow"><span class="choice-en">${esc(o)}</span>${showArabic() && hasArabic(q) ? ar((q.options_ar || [])[j]) : ''}</span></button>`).join('')}
             </div>
             <div class="actions"><button class="btn btn-primary" data-action="exam-next" ${pick == null ? 'disabled' : ''}>${i === e.questions.length - 1 ? 'Submit' : 'Next'}</button></div>
         </div>`;
     };
+
+    function showArabic() {
+        try { return localStorage.getItem('sosco.showArabic') !== '0'; } catch (e) { return true; }
+    }
 
     function advance(choice) {
         const { e, a, q } = currentRun();
@@ -420,15 +448,16 @@
         'q-del': el => { draft().questions.splice(+el.dataset.q, 1); A.render(); },
         'q-type': el => {
             const x = q(el);
-            if (x.type !== el.dataset.type) Object.assign(x, newQuestion(el.dataset.type), { id: x.id, text: x.text });
+            if (x.type !== el.dataset.type) Object.assign(x, newQuestion(el.dataset.type), { id: x.id, text: x.text, text_ar: x.text_ar || '' });
             A.render();
         },
         'q-correct': el => { q(el).correct = +el.dataset.opt; A.render(); },
-        'q-addopt': el => { q(el).options.push(''); A.render(); },
+        'q-addopt': el => { const x = q(el); x.options.push(''); x.options_ar = [...(x.options_ar || []), '']; A.render(); },
         'q-delopt': el => {
             const x = q(el);
             const j = +el.dataset.opt;
             x.options.splice(j, 1);
+            if (x.options_ar) x.options_ar.splice(j, 1);
             if (x.correct === j) x.correct = 0; else if (x.correct > j) x.correct--;
             A.render();
         },
@@ -480,6 +509,12 @@
         const d = draft();
         if (!d) return false;
         if (t.dataset.opt !== undefined && t.dataset.q !== undefined && t.tagName === 'INPUT') { d.questions[+t.dataset.q].options[+t.dataset.opt] = t.value; return true; }
+        if (t.dataset.optAr !== undefined) {
+            const x = d.questions[+t.dataset.q];
+            x.options_ar = x.options_ar || x.options.map(() => '');
+            x.options_ar[+t.dataset.optAr] = t.value;
+            return true;
+        }
         if (t.dataset.qfield) { d.questions[+t.dataset.q][t.dataset.qfield] = t.value; return true; }
         if (t.dataset.draft) {
             d[t.dataset.draft] = t.dataset.time !== undefined ? A.fromInput(t.value)

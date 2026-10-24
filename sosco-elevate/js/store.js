@@ -7,7 +7,7 @@
 //     seeded with sample people, reviews, goals and exams.
 const Store = (() => {
     const COLLECTIONS = ['users', 'departments', 'cycles', 'appraisals', 'goals', 'exams', 'examKeys', 'attempts'];
-    const PREFIX = 'sosco3.';
+    const PREFIX = 'sosco4.';
     const data = {};
     COLLECTIONS.forEach(c => { data[c] = []; });
     const listeners = new Set();
@@ -103,7 +103,7 @@ const Store = (() => {
         subs: [],
         async init(config) {
             await loadScript(SDK + 'firebase-app-compat.js');
-            await Promise.all([loadScript(SDK + 'firebase-auth-compat.js'), loadScript(SDK + 'firebase-firestore-compat.js')]);
+            await Promise.all([loadScript(SDK + 'firebase-auth-compat.js'), loadScript(SDK + 'firebase-firestore-compat.js'), loadScript(SDK + 'firebase-functions-compat.js')]);
             this.config = config;
             this.app = firebase.initializeApp(config);
             this.auth = firebase.auth();
@@ -202,6 +202,11 @@ const Store = (() => {
         },
         async resetPassword(email) {
             try { await this.auth.sendPasswordResetEmail(email); return null; } catch (e) { return e.message; }
+        },
+
+        async call(name, data) {
+            const result = await this.app.functions(window.SOSCO_FUNCTIONS_REGION || 'us-central1').httpsCallable(name, { timeout: 300000 })(data);
+            return result.data;
         },
 
         // Firebase asks for a recent sign-in before a password change, so the current password is checked first.
@@ -321,11 +326,11 @@ const Store = (() => {
             passMark: 80, opensAt: now - day, dueAt: now + 3 * day, assignedTo: ['employee', 'employee2', 'employee3'],
             status: 'sent', createdBy: 'manager', createdAt: now - day, sentAt: now - day,
             questions: [
-                { id: 'q1', type: 'tf', text: 'H2S is heavier than air and collects in low areas such as cellars and pits.', options: ['True', 'False'], seconds: 20 },
-                { id: 'q2', type: 'mcq', text: 'The H2S alarm sounds on location. What do you do first?', options: ['Finish the task you are on', 'Hold your breath, don your escape set and move upwind or crosswind to the muster point', 'Go downwind to the nearest vehicle', 'Look for the source of the leak'], seconds: 30 },
-                { id: 'q3', type: 'tf', text: 'You can rely on your sense of smell to detect H2S at high concentrations.', options: ['True', 'False'], seconds: 20 },
-                { id: 'q4', type: 'mcq', text: 'What colour is H2S gas?', options: ['Yellow', 'Pale green', 'Colourless', 'Brown'], seconds: 20 },
-                { id: 'q5', type: 'mcq', text: 'What tells you which way to move during an H2S release?', options: ['The windsock', 'The flare stack', 'The site layout board', 'The nearest gas detector'], seconds: 25 },
+                { id: 'q1', type: 'tf', text: 'H2S is heavier than air and collects in low areas such as cellars and pits.', text_ar: 'غاز H2S أثقل من الهواء ويتجمع في الأماكن المنخفضة مثل أقبية الآبار والحفر.', options: ['True', 'False'], options_ar: ['صحيح', 'خطأ'], seconds: 20 },
+                { id: 'q2', type: 'mcq', text: 'The H2S alarm sounds on location. What do you do first?', text_ar: 'انطلق إنذار H2S في موقع العمل. ماذا تفعل أولاً؟', options: ['Finish the task you are on', 'Hold your breath, don your escape set and move upwind or crosswind to the muster point', 'Go downwind to the nearest vehicle', 'Look for the source of the leak'], options_ar: ['أكمل المهمة التي تعمل عليها', 'احبس أنفاسك، وارتدِ جهاز التنفس للهروب، وتحرك عكس اتجاه الريح أو بشكل جانبي إلى نقطة التجمع', 'اتجه مع اتجاه الريح إلى أقرب مركبة', 'ابحث عن مصدر التسرب'], seconds: 30 },
+                { id: 'q3', type: 'tf', text: 'You can rely on your sense of smell to detect H2S at high concentrations.', text_ar: 'يمكنك الاعتماد على حاسة الشم لاكتشاف غاز H2S بتركيزات عالية.', options: ['True', 'False'], options_ar: ['صحيح', 'خطأ'], seconds: 20 },
+                { id: 'q4', type: 'mcq', text: 'What colour is H2S gas?', text_ar: 'ما لون غاز H2S؟', options: ['Yellow', 'Pale green', 'Colourless', 'Brown'], options_ar: ['أصفر', 'أخضر فاتح', 'عديم اللون', 'بني'], seconds: 20 },
+                { id: 'q5', type: 'mcq', text: 'What tells you which way to move during an H2S release?', text_ar: 'ما الذي يحدد لك اتجاه الحركة أثناء تسرب غاز H2S؟', options: ['The windsock', 'The flare stack', 'The site layout board', 'The nearest gas detector'], options_ar: ['كُمّ الرياح (مؤشر اتجاه الريح)', 'شعلة الحرق', 'لوحة مخطط الموقع', 'أقرب كاشف غاز'], seconds: 25 },
             ],
         };
         const wc = {
@@ -401,6 +406,11 @@ const Store = (() => {
             const err = await backend.changePassword(currentPw, nextPw);
             if (!err) emit();
             return err;
+        },
+        // Calls a Cloud Function (Firebase mode only).
+        call(name, data) {
+            if (!backend || !backend.call) return Promise.reject(new Error('Cloud Functions need Firebase.'));
+            return backend.call(name, data);
         },
         resetDemo() { if (backend === Demo) { Demo.reset(); location.reload(); } },
     };

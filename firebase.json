@@ -1,9 +1,18 @@
 {
   "hosting": {
     "public": "sosco-elevate",
-    "ignore": ["firebase.json", "**/.*"]
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ]
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "functions": {
+    "source": "functions",
+    "predeploy": [
+      "node -e \"require('fs').copyFileSync('sosco-elevate/js/ai-tasks.js', 'functions/ai-tasks.js')\""
+    ]
   }
 }

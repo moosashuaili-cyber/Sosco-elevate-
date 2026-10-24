@@ -17,6 +17,8 @@ Sosco-elevate-/
 ├── SETUP.md                     # How to connect Firebase and create the first admin
 ├── firebase.json                # Hosting (sosco-elevate/) + Firestore rules
 ├── firestore.rules              # Role-based access: admin / manager / employee
+├── functions/                   # Cloud Function `claude`: calls the Claude API with a server-side key
+│   └── index.js                 # (ai-tasks.js is copied in from sosco-elevate/js at deploy)
 └── sosco-elevate/               # The web app (deployed as-is)
     ├── index.html               # App shell + all CSS (tokens at the top)
     ├── manifest.webmanifest     # Home-screen install
@@ -28,7 +30,10 @@ Sosco-elevate-/
         ├── home.js              # Sign-in, setup, employee home, manager/admin dashboard
         ├── reviews.js           # Review cycles, self-assessment, manager review, sign-off
         ├── goals.js             # Goals/KPIs and progress logging
-        ├── exams.js             # Timed exams: builder, taking, results
+        ├── exams.js             # Timed exams: builder, taking, results (English + Arabic)
+        ├── ai-tasks.js          # Claude requests (chat tool + translation); shared with functions/
+        ├── ai.js                # Routes Claude calls: Cloud Function, or a device key in demo mode
+        ├── assistant.js         # Claude chat in the exam builder, Arabic translation, key setup
         ├── people.js            # Team, profiles, admin people & departments
         └── main.js              # Event wiring and start-up
 ```
@@ -116,6 +121,10 @@ To go live, follow SETUP.md.
   `mustChangePassword: true`; `App.render()` forces the `password` view until it is
   cleared. Changing a manager goes through `assignManager()` in `people.js`, which also
   moves open appraisals and goals and refuses reporting loops.
+- **Claude:** `ai-tasks.js` is the single source of the system prompt, tool schema and
+  request shape (UMD: browser global `SOSCO_AI_TASKS`, `require` in Node). Never put an
+  API key in the repo; the live app uses the `ANTHROPIC_API_KEY` function secret.
+  Questions carry optional `text_ar` / `options_ar`.
 - When changing who can read or write something, update `firestore.rules` and the
   queries in `store.js` together.
 

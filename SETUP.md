@@ -81,6 +81,47 @@ Signed in as admin:
    Everyone with a manager gets a review and is asked to assess themselves first.
 5. Managers set goals from **Team → person → Add Goal**, and send exams from **Exams**.
 
+## 6. Connect Claude (question assistant and Arabic translation)
+
+The exam builder can ask Claude to write questions (in English and Arabic) and to
+translate questions into Arabic. The Claude API key must stay on a server, never in the
+app's files, so a small Cloud Function (`functions/`) calls Claude for signed-in
+managers and admins.
+
+1. Cloud Functions need the **Blaze (pay-as-you-go)** plan: Firebase console →
+   ⚙ → Usage and billing → Modify plan. Normal use stays within the free allowance;
+   Claude usage is billed separately by Anthropic.
+2. In the [Claude Console](https://platform.claude.com), create an API key for this app
+   and set a monthly spend limit for it.
+3. Store the key in Google Secret Manager (it is never written to a file):
+
+   ```bash
+   firebase functions:secrets:set ANTHROPIC_API_KEY
+   ```
+
+   Paste the key when asked.
+4. Install the function's packages and deploy it:
+
+   ```bash
+   cd functions && npm install && cd ..
+   firebase deploy --only functions
+   ```
+
+5. In the app: **Exams → New Exam → Write Questions with Claude**.
+
+The function runs in `us-central1` by default. If you deploy it to another region, set
+`window.SOSCO_FUNCTIONS_REGION = 'your-region';` in `sosco-elevate/js/firebase-config.js`.
+
+**Before Firebase is set up**, you can try Claude in demo mode on your own computer:
+open `sosco-elevate/index.html`, start a new exam, tap **Write Questions with Claude**,
+and paste your key. It is saved in that browser only and sent straight to Anthropic.
+Don't do this on a shared computer, and never put the key in the code, a chat or an email.
+
+Claude uses `claude-opus-5-5`. If Claude declines a request on safety grounds, the API
+retries it on Anthropic's recommended fallback model. Questions Claude writes are
+suggestions: managers should check each one, especially anything that depends on a
+company or client procedure, before sending the exam.
+
 ## How it behaves
 
 - **Review flow:** self-assessment → manager review → employee sign-off → complete.

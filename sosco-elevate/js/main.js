@@ -22,6 +22,19 @@
         A.home();
     });
 
+    // Claude chat: send on submit, or Enter without Shift
+    app.addEventListener('submit', ev => {
+        if (ev.target.id !== 'aiForm') return;
+        ev.preventDefault();
+        A.sendChat();
+    });
+    app.addEventListener('keydown', ev => {
+        if (ev.target.id === 'ai-input' && ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) {
+            ev.preventDefault();
+            A.sendChat();
+        }
+    });
+
     // Password change form
     app.addEventListener('submit', async ev => {
         if (ev.target.id !== 'pwForm') return;
@@ -43,6 +56,7 @@
     });
 
     function bind(t) {
+        if (A.bindAssistant && A.bindAssistant(t)) return;
         if (t.dataset.pw) { A.state.ui.pw[t.dataset.pw] = t.value; A.state.errors = []; A.render(); return; }
         if (t.dataset.dash) { A.state.ui[t.dataset.dash] = t.value; A.render(); return; }
         if (t.dataset.actionChange) { A.actions[t.dataset.actionChange](t); return; }
