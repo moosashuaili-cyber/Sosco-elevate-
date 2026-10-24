@@ -75,11 +75,74 @@
                     ${pc == null ? A.pill('Marking') : A.pill(`${x.score}/${x.total} · ${pc}%`, pc >= e.passMark ? 'green' : 'red')}</div>`;
             }).join('') || '<div class="row empty">No exams taken yet.</div>'}</div>
 
-            ${u.role === 'admin' ? `<div class="actions"><button class="btn btn-plain" data-action="user-edit" data-id="${p.id}">Edit Person</button></div>` : ''}
+            ${p.id === u.id || u.role === 'admin' ? `<div class="actions">
+                ${p.id === u.id ? `<button class="btn btn-plain" data-action="password-change">Change Password</button>` : ''}
+                ${u.role === 'admin' ? `<button class="btn btn-plain" data-action="user-edit" data-id="${p.id}">Edit Person</button>` : ''}
+            </div>` : ''}
         </div>`;
     };
 
     // ---------- Admin: people and departments ----------
+
+    const canManage = p => p.active !== false && (p.role === 'manager' || p.role === 'admin');
+    const noManager = () => Store.all('users').filter(p => p.active !== false && p.role !== 'admin' && !p.managerId);
+    const reportsOf = id => Store.all('users').filter(p => p.managerId === id && p.active !== false);
+
+    // True when making managerId the manager of uid would put uid above itself.
+    function wouldLoop(uid, managerId) {
+        const seen = new Set();
+        for (let id = managerId; id; id = (A.user(id) || {}).managerId) {
+            if (id === uid) return true;
+            if (seen.has(id)) return false;
+            seen.add(id);
+        }
+        return false;
+    }
+
+    // Changes someone's manager. Reviews and goals still open in an unclosed cycle move to the new manager.
+    function assignManager(uid, managerId) {
+        const p = A.user(uid);
+        const next = managerId || null;
+        if (next && wouldLoop(uid, next)) return `${A.nameOf(next)} reports to ${p.name}, so they can't also be ${p.name.split(' ')[0]}'s manager.`;
+        if ((p.managerId || null) === next) return null;
+        A.save('users', { ...p, managerId: next });
+        const open = id => { const c = Store.get('cycles', id); return c && c.status !== 'closed'; };
+        Store.all('appraisals').filter(a => a.uid === uid && !A.isFinal(a) && open(a.cycleId))
+            .forEach(a => A.save('appraisals', { ...a, managerId: next }));
+        Store.all('goals').filter(g => g.uid === uid && open(g.cycleId))
+            .forEach(g => A.save('goals', { ...g, managerId: next }));
+        return null;
+    }
+
+    A.views.assign = () => {
+        const q = (A.state.ui.aq || '').trim().toLowerCase();
+        const onlyMissing = !!A.state.ui.onlyMissing;
+        const managers = Store.all('users').filter(canManage).sort((a, b) => a.name.localeCompare(b.name));
+        const people = Store.all('users')
+            .filter(p => p.active !== false && p.role !== 'admin')
+            .filter(p => !onlyMissing || !p.managerId)
+            .filter(p => !q || `${p.name} ${p.staffNo || ''} ${p.jobTitle || ''}`.toLowerCase().includes(q))
+            .sort((a, b) => a.name.localeCompare(b.name));
+        const depts = Store.all('departments').slice().sort((a, b) => a.name.localeCompare(b.name));
+        const groups = [...depts.map(d => ({ title: d.name, list: people.filter(p => p.deptId === d.id) })),
+            { title: 'No department', list: people.filter(p => !depts.some(d => d.id === p.deptId)) }].filter(g => g.list.length);
+        const row = p => `<div class="row assign-row">${A.avatar(p, 32)}
+            <span class="grow"><span class="title">${esc(p.name)}</span><span class="sub">${esc(p.jobTitle || A.ROLE[p.role])}${p.role === 'manager' ? ` · manages ${reportsOf(p.id).length}` : ''}</span></span>
+            <select class="select ${p.managerId ? '' : 'missing'}" id="mgr-${p.id}" data-assign-mgr="${p.id}" aria-label="Manager for ${esc(p.name)}">
+                <option value="">No manager</option>
+                ${managers.filter(m => m.id !== p.id).map(m => `<option value="${m.id}" ${m.id === p.managerId ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+            </select></div>`;
+        return `<div class="screen">${A.nav('People', 'data-action="tab" data-tab="people"')}
+            <h1 class="large-title">Assign Managers</h1>
+            <p class="lead">Each person's manager reviews them, sets their goals and sends them exams. Changes save straight away.</p>
+            <div class="toolbar"><input class="search" type="search" id="assign-q" data-ui="aq" value="${esc(A.state.ui.aq || '')}" placeholder="Search name, staff no., job" aria-label="Search people"></div>
+            <div class="group"><label class="row"><span class="grow">Only people without a manager (${noManager().length})</span>
+                <input type="checkbox" class="switch" id="only-missing" data-ui-check="onlyMissing" ${onlyMissing ? 'checked' : ''}></label></div>
+            ${groups.map(g => `<div class="section-label">${esc(g.title)} · ${g.list.length}</div><div class="group">${g.list.map(row).join('')}</div>`).join('')
+                || `<div class="group section-gap-sm"><div class="row empty">${onlyMissing ? 'Everyone has a manager.' : 'No people match.'}</div></div>`}
+            <p class="section-foot">Only managers and admins can be chosen. To make someone a manager, open their profile and change their role. Open reviews and goals move to the new manager; finished reviews stay with whoever wrote them.</p>
+        </div>`;
+    };
 
     A.views.people = () => {
         const q = (A.state.ui.q || '').trim().toLowerCase();
@@ -95,10 +158,12 @@
             <div class="toolbar">
                 <input class="search" type="search" id="people-q" data-ui="q" value="${esc(A.state.ui.q || '')}" placeholder="Search name, staff no., job" aria-label="Search people">
             </div>
-            <div class="btn-row">
-                <button class="btn btn-primary" data-action="user-new">${ICON.plus} Add Person</button>
+            <button class="btn btn-primary" data-action="user-new">${ICON.plus} Add Person</button>
+            <div class="btn-row even">
+                <button class="btn btn-secondary" data-action="go" data-view="assign">${ICON.people} Assign Managers</button>
                 <button class="btn btn-secondary" data-action="dept-new">${ICON.plus} Department</button>
             </div>
+            ${noManager().length ? `<button class="notice notice-btn" data-action="go" data-view="assign">${ICON.alert}<span class="grow">${noManager().length} ${noManager().length === 1 ? 'person has' : 'people have'} no manager, so no one can review them. Tap to assign.</span>${ICON.chevron}</button>` : ''}
             ${depts.map(d => section(d.name, users.filter(p => p.deptId === d.id), d)).join('')}
             ${none.length ? section('No department', none) : ''}
         </div>`;
@@ -108,7 +173,7 @@
         const f = A.state.ui.person;
         if (!f) { A.go('people', {}, { tab: 'people' }); return null; }
         const isNew = !Store.get('users', f.id);
-        const managers = Store.all('users').filter(p => (p.role === 'manager' || p.role === 'admin') && p.id !== f.id && p.active !== false);
+        const managers = Store.all('users').filter(p => canManage(p) && p.id !== f.id);
         const fire = Store.mode === 'firebase';
         return `<div class="screen">${A.nav('Cancel', isNew ? 'data-action="tab" data-tab="people"' : `data-action="go" data-view="profile" data-id="${f.id}"`)}
             <h1 class="large-title">${isNew ? 'Add Person' : 'Edit Person'}</h1>
@@ -121,10 +186,14 @@
             <div class="group">
                 <div class="row"><input class="input-plain" type="email" id="u-email" data-person="email" value="${esc(f.email || '')}" placeholder="Email" autocomplete="off" ${fire && !isNew ? 'disabled' : ''}></div>
                 ${!fire ? `<div class="row"><input class="input-plain" id="u-username" data-person="username" value="${esc(f.username || '')}" placeholder="Username" autocomplete="off" autocapitalize="none"></div>` : ''}
-                ${isNew || !fire ? `<div class="row"><input class="input-plain" type="text" id="u-pass" data-person="password" value="${esc(f.password || '')}" placeholder="${isNew ? 'Temporary password (6+ characters)' : 'Password'}" autocomplete="new-password"></div>` : ''}
+                ${isNew || !fire ? `<div class="row"><input class="input-plain" type="text" id="u-pass" data-person="password" value="${esc(f.password || '')}" placeholder="Temporary password (8+ characters)" autocomplete="new-password" spellcheck="false">
+                    <button type="button" class="link" data-action="user-genpass">Generate</button></div>` : ''}
+                ${!isNew ? `<label class="row"><span class="grow"><span class="title">Must change password</span><span class="sub">Asked to choose a new one at next sign-in</span></span>
+                    <input type="checkbox" class="switch" id="u-mustchange" data-person="mustChangePassword" ${f.mustChangePassword ? 'checked' : ''}></label>` : ''}
             </div>
             ${fire && !isNew ? `<p class="section-foot">Email can't be changed here. <button class="link inline" data-action="user-reset" data-email="${esc(f.email)}">Send a password reset email</button></p>`
-                : isNew ? `<p class="section-foot">Give the person this password. ${fire ? 'They can change it with “Forgot password?” on the sign-in page.' : ''}</p>` : ''}
+                : isNew ? '<p class="section-foot">Give the person this temporary password. When they first sign in, they must replace it with their own.</p>'
+                : '<p class="section-foot">Setting a new password here makes it temporary: they must change it at their next sign-in.</p>'}
             <div class="section-label">Role</div>
             <div class="group"><div class="row"><div class="seg grow" role="group" aria-label="Role">
                 ${['employee', 'manager', 'admin'].map(r => `<button type="button" class="${f.role === r ? 'on' : ''}" data-action="user-role" data-role="${r}">${A.ROLE[r]}</button>`).join('')}</div></div></div>
@@ -138,6 +207,7 @@
                 ${!isNew ? `<label class="row"><span class="grow">Active</span><input type="checkbox" class="switch" id="u-active" data-person="active" ${f.active !== false ? 'checked' : ''}></label>` : ''}
             </div>
             <p class="section-foot">The manager reviews this person and sets their goals. Inactive people can't sign in and drop out of new cycles.</p>
+            ${!isNew && reportsOf(f.id).length ? `<p class="section-foot">${reportsOf(f.id).length} ${reportsOf(f.id).length === 1 ? 'person reports' : 'people report'} to ${esc(f.name.split(' ')[0])}: ${reportsOf(f.id).map(r => esc(r.name)).join(', ')}.</p>` : ''}
             ${A.state.errors.length ? `<div class="errors" role="alert"><ul>${A.state.errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}
             <div class="actions"><button class="btn btn-primary" data-action="user-save" ${A.state.ui.busy ? 'disabled' : ''}>${A.state.ui.busy ? 'Saving…' : isNew ? 'Add Person' : 'Save'}</button></div>
         </div>`;
@@ -167,11 +237,12 @@
 
     Object.assign(A.actions, {
         'user-new': () => {
-            A.state.ui = { person: { id: Store.uid(), name: '', email: '', username: '', password: '', role: 'employee', deptId: '', managerId: '', jobTitle: '', staffNo: '', active: true } };
+            A.state.ui = { person: { id: Store.uid(), name: '', email: '', username: '', password: A.tempPassword(), role: 'employee', deptId: '', managerId: '', jobTitle: '', staffNo: '', active: true, mustChangePassword: true } };
             A.go('user-edit', {}, { keepUi: true });
         },
         'user-edit': el => { A.state.ui = { person: { ...Store.get('users', el.dataset.id) } }; A.go('user-edit', {}, { keepUi: true }); },
         'user-role': el => { A.state.ui.person.role = el.dataset.role; A.render(); },
+        'user-genpass': () => { A.state.ui.person.password = A.tempPassword(); A.render(); },
         'user-reset': async el => {
             const err = await Store.resetPassword(el.dataset.email);
             A.toast(err || `Reset email sent to ${el.dataset.email}`);
@@ -185,14 +256,23 @@
             if (fire || f.email) { if (!validEmail(f.email)) errors.push('Enter a valid email address.'); }
             if (!fire && !f.username.trim()) errors.push('Enter a username.');
             if (!fire && Store.all('users').some(p => p.id !== f.id && p.username === f.username.trim().toLowerCase())) errors.push('That username is taken.');
-            if ((isNew || !fire) && (f.password || '').length < 6) errors.push('Use a password of at least 6 characters.');
+            const saved = Store.get('users', f.id);
+            const newPassword = isNew || (!fire && saved && f.password !== saved.password);
+            if (newPassword && (f.password || '').length < 8) errors.push('Use a temporary password of at least 8 characters, or tap Generate.');
             if (f.role !== 'admin' && !f.managerId) errors.push('Choose a manager, so someone can review this person.');
+            if (f.managerId && wouldLoop(f.id, f.managerId)) errors.push(`${A.nameOf(f.managerId)} reports to ${f.name.split(' ')[0] || 'this person'}, so they can't be their manager.`);
+            if (saved && canManage(saved) && (!canManage(f) || f.active === false) && reportsOf(f.id).length) {
+                errors.push(`${reportsOf(f.id).length} ${reportsOf(f.id).length === 1 ? 'person reports' : 'people report'} to ${saved.name}. Give them a new manager first (People → Assign Managers).`);
+            }
             A.state.errors = errors;
             if (errors.length) { A.render(); return; }
             const profile = { ...f, name: f.name.trim(), email: (f.email || '').trim().toLowerCase(), username: (f.username || '').trim().toLowerCase(), deptId: f.deptId || null, managerId: f.managerId || null };
+            if (newPassword) profile.mustChangePassword = true;
             if (!isNew) {
                 if (fire) delete profile.password;
-                A.save('users', profile, 'Saved');
+                const managerChanged = (saved.managerId || null) !== profile.managerId;
+                A.save('users', { ...profile, managerId: saved.managerId || null }, 'Saved');
+                if (managerChanged) assignManager(f.id, profile.managerId);
                 A.go('profile', { id: f.id }, { tab: 'people' });
                 return;
             }
@@ -227,6 +307,13 @@
 
     A.bindPeople = t => {
         if (t.dataset.ui) { A.state.ui[t.dataset.ui] = t.value; A.render(); return true; }
+        if (t.dataset.uiCheck) { A.state.ui[t.dataset.uiCheck] = t.checked; A.render(); return true; }
+        if (t.dataset.assignMgr) {
+            const err = assignManager(t.dataset.assignMgr, t.value);
+            if (err) { A.toast(err); A.render(); return true; }
+            A.toast(t.value ? `${A.nameOf(t.dataset.assignMgr)} now reports to ${A.nameOf(t.value)}` : `${A.nameOf(t.dataset.assignMgr)} has no manager`);
+            return true;
+        }
         if (t.dataset.person && A.state.ui.person) { A.state.ui.person[t.dataset.person] = t.type === 'checkbox' ? t.checked : t.value; return true; }
         if (t.dataset.dept && A.state.ui.dept) { A.state.ui.dept[t.dataset.dept] = t.value; return true; }
         return false;

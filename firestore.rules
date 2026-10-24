@@ -21,7 +21,12 @@ service cloud.firestore {
 
     match /users/{id} {
       allow read: if active();
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        // After changing their own password, a person clears the "must change" flag. Nothing else.
+        || (active() && id == uid()
+            && changed().hasOnly(['mustChangePassword', 'passwordChangedAt'])
+            && request.resource.data.mustChangePassword == false);
     }
 
     match /departments/{id} {

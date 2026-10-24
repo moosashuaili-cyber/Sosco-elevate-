@@ -7,7 +7,7 @@
 //     seeded with sample people, reviews, goals and exams.
 const Store = (() => {
     const COLLECTIONS = ['users', 'departments', 'cycles', 'appraisals', 'goals', 'exams', 'examKeys', 'attempts'];
-    const PREFIX = 'sosco2.';
+    const PREFIX = 'sosco3.';
     const data = {};
     COLLECTIONS.forEach(c => { data[c] = []; });
     const listeners = new Set();
@@ -73,7 +73,15 @@ const Store = (() => {
             writeLocal(PREFIX + 'users', data.users);
             return u;
         },
-        async resetPassword() { return 'Password reset emails need Firebase. In demo mode, edit the user and set a new password.'; },
+        async resetPassword() { return 'Password reset emails need Firebase. In demo mode, edit the user and set a new temporary password.'; },
+        async changePassword(currentPw, nextPw) {
+            if (current.password !== currentPw) return 'Your current password is wrong.';
+            const u = { ...current, password: nextPw, mustChangePassword: false, passwordChangedAt: Date.now() };
+            upsert('users', u);
+            writeLocal(PREFIX + 'users', data.users);
+            current = u;
+            return null;
+        },
         reset() { COLLECTIONS.forEach(c => writeLocal(PREFIX + c, null)); writeSession(null); },
     };
 
@@ -195,6 +203,26 @@ const Store = (() => {
         async resetPassword(email) {
             try { await this.auth.sendPasswordResetEmail(email); return null; } catch (e) { return e.message; }
         },
+
+        // Firebase asks for a recent sign-in before a password change, so the current password is checked first.
+        async changePassword(currentPw, nextPw) {
+            const user = this.auth.currentUser;
+            try {
+                await user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email, currentPw));
+                await user.updatePassword(nextPw);
+            } catch (e) {
+                if (['auth/invalid-credential', 'auth/wrong-password'].includes(e.code)) return 'Your current password is wrong.';
+                if (e.code === 'auth/weak-password') return 'That password is too weak. Choose a longer one.';
+                if (e.code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes, then try again.';
+                if (e.code === 'auth/network-request-failed') return 'No connection. Check your internet and try again.';
+                return e.message;
+            }
+            const done = { mustChangePassword: false, passwordChangedAt: Date.now() };
+            await this.db.collection('users').doc(user.uid).update(done);
+            current = { ...current, ...done };
+            upsert('users', current);
+            return null;
+        },
     };
 
     // ---------- Sample data for demo mode ----------
@@ -223,8 +251,10 @@ const Store = (() => {
             P('employee4', 'Said Al-Maamari', 'employee', 'wi', 'manager2', 'Coiled Tubing Operator', 'S-1131'),
             P('employee5', 'Maryam Al-Kindi', 'employee', 'wi', 'manager2', 'Pumping Operator', 'S-1138'),
             P('employee6', 'Hamed Al-Busaidi', 'employee', 'wi', 'manager2', 'Slickline Operator', 'S-1142'),
+            // A new starter who must choose a password at first sign-in.
+            { ...P('newhire', 'Nasser Al-Habsi', 'employee', 'whm', 'manager', 'Trainee Technician', 'S-1150'), password: 'welcome123', mustChangePassword: true },
         ];
-        const team = users.filter(u => u.role === 'employee');
+        const team = users.filter(u => u.role === 'employee' && !u.mustChangePassword);
 
         const competencies = [
             { id: 'hse', name: 'HSE & safety behaviour', desc: 'Follows PTW, stops unsafe work, reports hazards and near misses.', weight: 25 },
@@ -367,6 +397,11 @@ const Store = (() => {
             return u;
         },
         resetPassword: email => backend.resetPassword(email),
+        async changePassword(currentPw, nextPw) {
+            const err = await backend.changePassword(currentPw, nextPw);
+            if (!err) emit();
+            return err;
+        },
         resetDemo() { if (backend === Demo) { Demo.reset(); location.reload(); } },
     };
 })();

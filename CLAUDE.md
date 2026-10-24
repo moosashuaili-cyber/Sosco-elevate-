@@ -39,7 +39,8 @@ No build step or dependencies. Open `sosco-elevate/index.html` in a browser.
 
 Demo accounts (demo mode only, seeded in `js/store.js`):
 `admin`/`admin123`, `manager`/`manager123`, `manager2`/`manager123`,
-`employee` … `employee6` / `employee123`. "Reset demo data" on Home restores the seed.
+`employee` … `employee6` / `employee123`, and `newhire`/`welcome123` (must change
+password at first sign-in). "Reset demo data" on Home restores the seed.
 
 To go live, follow SETUP.md.
 
@@ -111,6 +112,10 @@ To go live, follow SETUP.md.
 - **Scoring:** `App.result()` = weighted competency ratings blended with weighted
   goal ratings by `cycle.goalsWeight`. Exam scores are marked by the exam owner's
   client in `App.reconcile()`, since only owners can read `examKeys`.
+- **Accounts:** admins create users with a temporary password and
+  `mustChangePassword: true`; `App.render()` forces the `password` view until it is
+  cleared. Changing a manager goes through `assignManager()` in `people.js`, which also
+  moves open appraisals and goals and refuses reporting loops.
 - When changing who can read or write something, update `firestore.rules` and the
   queries in `store.js` together.
 

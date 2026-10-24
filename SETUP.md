@@ -72,11 +72,14 @@ Signed in as admin:
 
 1. **People → Department**: add departments (e.g. HO, WHM, WI).
 2. **People → Add Person**: add managers first, then employees, choosing each person's
-   manager. Give each person their email and temporary password; they can change it
-   with **Forgot password?** on the sign-in screen.
-3. **Reviews → New Review Cycle**: set dates and competencies, then **Start Cycle**.
+   manager. A temporary password is generated for you; give it to the person with their
+   email. At their first sign-in they must replace it with their own password before
+   they can use the app.
+3. **People → Assign Managers**: change who reports to whom, for everyone on one screen.
+   Open reviews and goals move to the new manager.
+4. **Reviews → New Review Cycle**: set dates and competencies, then **Start Cycle**.
    Everyone with a manager gets a review and is asked to assess themselves first.
-4. Managers set goals from **Team → person → Add Goal**, and send exams from **Exams**.
+5. Managers set goals from **Team → person → Add Goal**, and send exams from **Exams**.
 
 ## How it behaves
 
@@ -90,6 +93,12 @@ Signed in as admin:
   Cloud Function, which requires the Blaze (pay-as-you-go) plan.
 - **Exam timers** run in the app. The rules stop anyone starting outside the exam
   window or submitting more than two minutes after the due time.
+- **Temporary passwords:** new accounts are flagged `mustChangePassword`, and the app
+  shows only the “Set a new password” screen until the person chooses a new one (at
+  least 8 characters, letters and numbers, different from the temporary one). An admin
+  can switch the flag back on from Edit Person. The app enforces this screen; Firestore
+  can't check that a password really changed, so a determined user could clear the flag
+  without changing it. For a hard guarantee, add a Cloud Function (Blaze plan).
 - **Removing people:** set them to inactive. They can no longer sign in or join new
   cycles, and their history stays. To delete a login completely, use
   Authentication → Users in the console.

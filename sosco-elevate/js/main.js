@@ -22,7 +22,28 @@
         A.home();
     });
 
+    // Password change form
+    app.addEventListener('submit', async ev => {
+        if (ev.target.id !== 'pwForm') return;
+        ev.preventDefault();
+        const u = A.me();
+        const f = A.state.ui.pw;
+        const errors = !f.current ? ['Enter your ' + (u.mustChangePassword ? 'temporary' : 'current') + ' password.'] : [];
+        errors.push(...A.passwordProblems(f.next, { current: f.current, name: u.name }));
+        if (f.next !== f.confirm) errors.push('The new passwords don\'t match.');
+        A.state.errors = errors;
+        if (errors.length) { A.render(); return; }
+        A.state.ui.busy = true;
+        A.render();
+        const err = await Store.changePassword(f.current, f.next);
+        A.state.ui.busy = false;
+        if (err) { A.state.errors = [err]; A.render(); return; }
+        A.toast('Password changed');
+        A.home();
+    });
+
     function bind(t) {
+        if (t.dataset.pw) { A.state.ui.pw[t.dataset.pw] = t.value; A.state.errors = []; A.render(); return; }
         if (t.dataset.dash) { A.state.ui[t.dataset.dash] = t.value; A.render(); return; }
         if (t.dataset.actionChange) { A.actions[t.dataset.actionChange](t); return; }
         if (A.bindDraft && A.state.view === 'exam-edit' && A.bindDraft(t)) return;

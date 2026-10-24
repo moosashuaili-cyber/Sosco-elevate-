@@ -1474,6 +1474,108 @@
             }
         }
 
+        /* ---------- Passwords and manager assignment ---------- */
+        .pw-rules {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: -4px 0 16px 4px;
+            font-size: 13px;
+            color: var(--label-2);
+        }
+
+        .pw-rules li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pw-rules svg {
+            width: 14px;
+            height: 14px;
+            color: var(--green);
+        }
+
+        .pw-rules .dot {
+            width: 14px;
+            height: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pw-rules .dot::before {
+            content: "";
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--label-3);
+        }
+
+        .pw-rules li.ok {
+            color: var(--label);
+        }
+
+        .icon-tile.big {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+        }
+
+        .icon-tile.big svg {
+            width: 34px;
+            height: 34px;
+        }
+
+        .tile-lock {
+            background: var(--orange);
+        }
+
+        .header h1 + .subtitle {
+            max-width: 34ch;
+            margin: 8px auto 0;
+            line-height: 1.4;
+        }
+
+        .btn-row.even {
+            grid-template-columns: 1fr 1fr;
+            margin-top: 10px;
+        }
+
+        .btn-row.even .btn {
+            font-size: 15px;
+            padding: 12px 8px;
+        }
+
+        .notice-btn {
+            width: 100%;
+            margin-top: 12px;
+            border: none;
+            text-align: left;
+            color: var(--label);
+            cursor: pointer;
+            align-items: center;
+        }
+
+        .notice-btn .chevron {
+            margin-left: 4px;
+        }
+
+        .assign-row .select {
+            flex: 0 1 46%;
+            max-width: 46%;
+        }
+
+        .select.missing {
+            color: var(--red);
+            background: color-mix(in srgb, var(--red) 10%, var(--fill));
+        }
+
+        .section-gap-sm {
+            margin-top: 16px;
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .toast, .ring-bar, .chevron { animation: none; transition: none; }
         }

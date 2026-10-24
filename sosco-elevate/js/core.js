@@ -70,6 +70,26 @@ const App = (() => {
     }
     const suggestRating = p => (p >= 110 ? 5 : p >= 100 ? 4 : p >= 85 ? 3 : p >= 70 ? 2 : 1);
 
+    // ---------- Passwords ----------
+
+    function passwordProblems(pw, { current, name } = {}) {
+        const problems = [];
+        if (pw.length < 8) problems.push('Use at least 8 characters.');
+        if (!/[A-Za-z]/.test(pw) || !/[0-9]/.test(pw)) problems.push('Use both letters and numbers.');
+        if (current && pw === current) problems.push('Choose a password different from your temporary one.');
+        if (name && name.split(/\s+/).some(w => w.length > 2 && pw.toLowerCase().includes(w.toLowerCase()))) problems.push('Don\'t use your name in the password.');
+        if (/^(password|sosco|welcome|12345)/i.test(pw)) problems.push('That password is too easy to guess.');
+        return problems;
+    }
+
+    // Readable temporary password, e.g. "Rig-4827-Tide".
+    function tempPassword() {
+        const words = ['Rig', 'Well', 'Tide', 'Dune', 'Falcon', 'Valve', 'Flare', 'Gauge', 'Oasis', 'Pump', 'Crew', 'Sand'];
+        const n = new Uint32Array(3);
+        crypto.getRandomValues(n);
+        return `${words[n[0] % words.length]}-${1000 + (n[1] % 9000)}-${words[n[2] % words.length]}`;
+    }
+
     function weighted(items) {
         const rated = items.filter(i => i.rating);
         const w = rated.reduce((n, i) => n + (Number(i.weight) || 0), 0);
@@ -270,11 +290,14 @@ const App = (() => {
         const u = me();
         if (!u && state.view !== 'login') state.view = 'login';
         if (u && u.missing) state.view = 'setup';
+        // A temporary password must be replaced before anything else.
+        const mustChange = u && !u.missing && u.mustChangePassword;
+        if (mustChange) state.view = 'password';
         if (u && !u.missing && (state.view === 'login' || state.view === 'setup')) { state.view = 'home'; state.tab = 'home'; }
         const fn = views[state.view] || views.home;
         const html = fn(state.params);
         if (html == null) return; // the view redirected
-        const withTabs = u && !u.missing && !state.params.fullscreen;
+        const withTabs = u && !u.missing && !mustChange && !state.params.fullscreen;
         const focusId = document.activeElement && document.activeElement.id;
         const caret = focusId && document.activeElement.selectionStart;
         app().innerHTML = withTabs ? `<main class="has-tabs">${html}</main>${tabBar()}` : html;
@@ -298,6 +321,7 @@ const App = (() => {
         state, views, actions, afterRender, render, onData, go, home, nav, toast, save,
         esc, pad, pct, DAY, fmtDate, fmtDay, fmtLeft, fmtSecs, fmtScore, toInput, toDateInput, fromInput, fromDateInput,
         me, user, nameOf, dept, isAdmin, isManager, team, ROLE,
+        passwordProblems, tempPassword,
         RATINGS, SHORT, band, STAGES, achievement, suggestRating, result, isFinal, overdue, activeCycle, cyclesNewest,
         examState, scoreAttempt, reconcile,
         ICON, ring, avatar, pill, stagePill, ratingPill, barList, stageBar,

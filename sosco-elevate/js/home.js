@@ -45,6 +45,43 @@
         </div>`;
     };
 
+    // ---------- Password change (forced after a temporary password, or from the profile) ----------
+
+    A.views.password = () => {
+        const u = A.me();
+        const forced = !!u.mustChangePassword;
+        const f = A.state.ui.pw || (A.state.ui.pw = { current: '', next: '', confirm: '' });
+        const rules = [
+            ['At least 8 characters', f.next.length >= 8],
+            ['Letters and numbers', /[A-Za-z]/.test(f.next) && /[0-9]/.test(f.next)],
+            ['Both new passwords match', f.next.length > 0 && f.next === f.confirm],
+        ];
+        const field = (id, key, label, auto) => `<div class="form-group">
+            <label for="${id}">${label}</label>
+            <div class="input-wrap">${ICON.lock}<input id="${id}" type="password" data-pw="${key}" value="${esc(f[key])}" autocomplete="${auto}"></div></div>`;
+        const form = `
+            <form id="pwForm" novalidate>
+                ${field('pw-current', 'current', forced ? 'Temporary password' : 'Current password', 'current-password')}
+                ${field('pw-next', 'next', 'New password', 'new-password')}
+                ${field('pw-confirm', 'confirm', 'Confirm new password', 'new-password')}
+                <ul class="pw-rules" aria-label="Password rules">${rules.map(([t, ok]) => `<li class="${ok ? 'ok' : ''}">${ok ? ICON.check : '<span class="dot"></span>'}${t}</li>`).join('')}</ul>
+                ${A.state.errors.length ? `<p class="form-error" role="alert">${A.state.errors.map(esc).join('<br>')}</p>` : ''}
+                <button type="submit" class="btn btn-primary" id="pw-save" ${A.state.ui.busy ? 'disabled' : ''}>${A.state.ui.busy ? 'Saving…' : 'Save New Password'}</button>
+            </form>`;
+
+        if (forced) {
+            return `<div class="screen-login">
+                <div class="header"><span class="icon-tile tile-lock big">${ICON.lock}</span><h1>Set a new password</h1>
+                <div class="subtitle">Welcome, ${esc(u.name.split(' ')[0])}. For your security, replace the temporary password you were given before you continue.</div></div>
+                <div class="login-card">${form}</div>
+                <button class="link forgot" data-action="logout">Sign out</button>
+            </div>`;
+        }
+        return `<div class="screen">${A.nav('Profile', `data-action="go" data-view="profile" data-id="${u.id}"`)}
+            <h1 class="large-title">Change Password</h1>
+            <div class="login-card">${form}</div></div>`;
+    };
+
     A.views.setup = () => {
         const u = A.me();
         return `<div class="screen-login">
@@ -246,6 +283,7 @@
             box.textContent = err || `If ${email} has an account, a reset link is on its way.`;
             box.hidden = false;
         },
+        'password-change': () => { A.state.ui = {}; A.go('password'); },
         logout: async () => { await Store.signOut(); A.go('login', {}, { tab: 'home' }); },
     });
 })();
