@@ -29,6 +29,11 @@ service cloud.firestore {
             && request.resource.data.mustChangePassword == false);
     }
 
+    // WhatsApp sign-in codes (hashed). Only the Cloud Functions read or write these.
+    match /otps/{phone} {
+      allow read, write: if false;
+    }
+
     match /departments/{id} {
       allow read: if active();
       allow write: if isAdmin();

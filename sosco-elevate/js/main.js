@@ -22,6 +22,54 @@
         A.home();
     });
 
+    // WhatsApp sign-in
+    let resendTimer = null;
+    function countdown() {
+        clearInterval(resendTimer);
+        resendTimer = setInterval(() => {
+            const o = A.state.ui.otp;
+            if (!o || !o.sent || A.state.view !== 'login') { clearInterval(resendTimer); return; }
+            o.wait = Math.max(0, o.wait - 1);
+            const btn = document.getElementById('otp-resend');
+            if (btn) { btn.disabled = o.wait > 0; btn.textContent = o.wait > 0 ? `Resend in ${o.wait}s` : 'Resend code'; }
+            if (!o.wait) clearInterval(resendTimer);
+        }, 1000);
+    }
+
+    A.requestCode = async () => {
+        const o = A.state.ui.otp || (A.state.ui.otp = {});
+        const input = document.getElementById('otp-phone');
+        if (input) o.input = input.value;
+        Object.assign(o, { busy: true, error: '' });
+        A.render();
+        const r = await Store.requestOtp(o.sent ? o.phone : o.input);
+        o.busy = false;
+        if (r.error) { o.error = r.error; A.render(); return; }
+        Object.assign(o, { sent: true, phone: r.phone, demoCode: r.demoCode, wait: r.resendIn || 60, code: '', error: '' });
+        A.render();
+        countdown();
+        const box = document.getElementById('otp-code');
+        if (box) box.focus();
+    };
+
+    async function verifyCode() {
+        const o = A.state.ui.otp;
+        if (!o || o.busy) return;
+        if (!/^\d{6}$/.test(o.code || '')) { o.error = 'Enter the 6-digit code from WhatsApp.'; A.render(); return; }
+        Object.assign(o, { busy: true, error: '' });
+        A.render();
+        const err = await Store.verifyOtp(o.phone, o.code);
+        o.busy = false;
+        if (err) { Object.assign(o, { error: err, code: '' }); A.render(); return; }
+        A.state.ui.otp = null;
+        A.home();
+    }
+
+    app.addEventListener('submit', ev => {
+        if (ev.target.id === 'otpPhoneForm') { ev.preventDefault(); A.requestCode(); }
+        if (ev.target.id === 'otpCodeForm') { ev.preventDefault(); verifyCode(); }
+    });
+
     // Claude chat: send on submit, or Enter without Shift
     app.addEventListener('submit', ev => {
         if (ev.target.id !== 'aiForm') return;
@@ -56,6 +104,12 @@
     });
 
     function bind(t) {
+        if (t.dataset.otpCode !== undefined) {
+            t.value = t.value.replace(/\D/g, '').slice(0, 6);
+            A.state.ui.otp.code = t.value;
+            if (t.value.length === 6) verifyCode();
+            return;
+        }
         if (A.bindAssistant && A.bindAssistant(t)) return;
         if (t.dataset.pw) { A.state.ui.pw[t.dataset.pw] = t.value; A.state.errors = []; A.render(); return; }
         if (t.dataset.dash) { A.state.ui[t.dataset.dash] = t.value; A.render(); return; }

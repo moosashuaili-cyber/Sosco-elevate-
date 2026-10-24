@@ -9,6 +9,11 @@ const Anthropic = require('@anthropic-ai/sdk');
 const tasks = require('./ai-tasks.js');
 
 admin.initializeApp();
+
+// WhatsApp sign-in codes
+const otp = require('./otp.js');
+exports.requestOtp = otp.requestOtp;
+exports.verifyOtp = otp.verifyOtp;
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
 exports.claude = onCall({ secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300, memory: '256MiB' }, async request => {

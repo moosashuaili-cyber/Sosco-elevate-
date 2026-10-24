@@ -30,6 +30,8 @@ const App = (() => {
         return `${Math.floor(h / 24)} days`;
     }
     const fmtSecs = s => (s < 60 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ''}`);
+    // "+96891230004" → "+968 9123 0004"
+    const fmtPhone = p => (p ? String(p).replace(/^\+968(\d{4})(\d{4})$/, '+968 $1 $2') : '');
     const fmtScore = n => (n == null ? '–' : n.toFixed(2));
     const initials = name => String(name || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
@@ -181,6 +183,8 @@ const App = (() => {
         people: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/>'),
         clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
         alert: svg('<path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17.5v.5"/>'),
+        phone: svg('<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>'),
+        whatsapp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.4.8 3.2.6.5-.1 1.5-.6 1.8-1.2.2-.6.2-1.1.1-1.2l-.5-.3z"/></svg>',
         sparkle: svg('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>'),
         send: svg('<path d="M12 19V5M5 12l7-7 7 7"/>', '0 0 24 24', 2.5),
         pen: svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>'),
@@ -293,7 +297,8 @@ const App = (() => {
         if (!u && state.view !== 'login') state.view = 'login';
         if (u && u.missing) state.view = 'setup';
         // A temporary password must be replaced before anything else.
-        const mustChange = u && !u.missing && u.mustChangePassword;
+        // People who signed in with a WhatsApp code have no password to replace.
+        const mustChange = u && !u.missing && u.mustChangePassword && Store.signedInWith() === 'password';
         if (mustChange) state.view = 'password';
         if (u && !u.missing && (state.view === 'login' || state.view === 'setup')) { state.view = 'home'; state.tab = 'home'; }
         const fn = views[state.view] || views.home;
@@ -321,7 +326,7 @@ const App = (() => {
 
     return {
         state, views, actions, afterRender, render, onData, go, home, nav, toast, save,
-        esc, pad, pct, DAY, fmtDate, fmtDay, fmtLeft, fmtSecs, fmtScore, toInput, toDateInput, fromInput, fromDateInput,
+        esc, pad, pct, fmtPhone, DAY, fmtDate, fmtDay, fmtLeft, fmtSecs, fmtScore, toInput, toDateInput, fromInput, fromDateInput,
         me, user, nameOf, dept, isAdmin, isManager, team, ROLE,
         passwordProblems, tempPassword,
         RATINGS, SHORT, band, STAGES, achievement, suggestRating, result, isFinal, overdue, activeCycle, cyclesNewest,

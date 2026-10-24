@@ -53,7 +53,8 @@
         return `<div class="screen">${back}
             <div class="person-head">${A.avatar(p, 60)}<div class="grow"><h1 class="title-2">${esc(p.name)}</h1>
                 <div class="sub">${esc(p.jobTitle || A.ROLE[p.role])}${dept ? ` · ${esc(dept.name)}` : ''}</div>
-                <div class="sub">${p.staffNo ? `${esc(p.staffNo)} · ` : ''}Reports to ${esc(p.managerId ? A.nameOf(p.managerId) : 'no one')}</div></div></div>
+                <div class="sub">${p.staffNo ? `${esc(p.staffNo)} · ` : ''}Reports to ${esc(p.managerId ? A.nameOf(p.managerId) : 'no one')}</div>
+                ${p.phone ? `<div class="sub phone-line">${ICON.whatsapp}<span dir="ltr">${esc(A.fmtPhone(p.phone))}</span></div>` : ''}</div></div>
 
             ${cycle ? `<div class="section-label">${esc(cycle.name)}</div>
             <div class="group">${a ? `<button class="row" data-action="go" data-view="appraisal" data-id="${a.id}">${ICON.star}<span class="grow"><span class="title">Review</span>
@@ -146,7 +147,7 @@
 
     A.views.people = () => {
         const q = (A.state.ui.q || '').trim().toLowerCase();
-        const users = Store.all('users').filter(p => !q || `${p.name} ${p.email || ''} ${p.staffNo || ''} ${p.jobTitle || ''}`.toLowerCase().includes(q))
+        const users = Store.all('users').filter(p => !q || `${p.name} ${p.email || ''} ${p.staffNo || ''} ${p.jobTitle || ''} ${(p.phone || '').replace('+968', '')}`.toLowerCase().includes(q))
             .sort((a, b) => a.name.localeCompare(b.name));
         const depts = Store.all('departments').slice().sort((a, b) => a.name.localeCompare(b.name));
         const none = users.filter(p => !depts.some(d => d.id === p.deptId));
@@ -156,13 +157,14 @@
         return `<div class="screen">${A.nav()}
             <h1 class="large-title">People</h1>
             <div class="toolbar">
-                <input class="search" type="search" id="people-q" data-ui="q" value="${esc(A.state.ui.q || '')}" placeholder="Search name, staff no., job" aria-label="Search people">
+                <input class="search" type="search" id="people-q" data-ui="q" value="${esc(A.state.ui.q || '')}" placeholder="Search name, staff no., job, phone" aria-label="Search people">
             </div>
             <button class="btn btn-primary" data-action="user-new">${ICON.plus} Add Person</button>
             <div class="btn-row even">
                 <button class="btn btn-secondary" data-action="go" data-view="assign">${ICON.people} Assign Managers</button>
                 <button class="btn btn-secondary" data-action="dept-new">${ICON.plus} Department</button>
             </div>
+            ${(() => { const n = Store.all('users').filter(p => p.active !== false && !p.phone).length; return n ? `<div class="notice">${ICON.whatsapp}<span>${n} ${n === 1 ? 'person has' : 'people have'} no WhatsApp number, so they can only sign in with email and password. Open a person and tap Edit Person to add it.</span></div>` : ''; })()}
             ${noManager().length ? `<button class="notice notice-btn" data-action="go" data-view="assign">${ICON.alert}<span class="grow">${noManager().length} ${noManager().length === 1 ? 'person has' : 'people have'} no manager, so no one can review them. Tap to assign.</span>${ICON.chevron}</button>` : ''}
             ${depts.map(d => section(d.name, users.filter(p => p.deptId === d.id), d)).join('')}
             ${none.length ? section('No department', none) : ''}
@@ -172,7 +174,8 @@
     A.views['user-edit'] = () => {
         const f = A.state.ui.person;
         if (!f) { A.go('people', {}, { tab: 'people' }); return null; }
-        const isNew = !Store.get('users', f.id);
+        const saved = Store.get('users', f.id);
+        const isNew = !saved;
         const managers = Store.all('users').filter(p => canManage(p) && p.id !== f.id);
         const fire = Store.mode === 'firebase';
         return `<div class="screen">${A.nav('Cancel', isNew ? 'data-action="tab" data-tab="people"' : `data-action="go" data-view="profile" data-id="${f.id}"`)}
@@ -184,6 +187,12 @@
             </div>
             <div class="section-label">Sign-in</div>
             <div class="group">
+                <label class="row"><span class="grow"><span class="title">WhatsApp number</span><span class="sub">Signs in with a code sent here</span></span>
+                    <input class="input-plain phone-input" type="tel" inputmode="tel" id="u-phone" data-person="phone" value="${esc(A.fmtPhone(f.phone))}" placeholder="9123 4567" autocomplete="off"></label>
+                <label class="row"><span class="grow"><span class="title">Email and password too</span><span class="sub">For people who also sign in with email</span></span>
+                    <input type="checkbox" class="switch" id="u-pwlogin" data-person="passwordLogin" ${f.passwordLogin ? 'checked' : ''} ${fire && !isNew && saved && saved.email ? 'disabled' : ''}></label>
+            </div>
+            ${f.passwordLogin ? `<div class="group section-gap-sm">
                 <div class="row"><input class="input-plain" type="email" id="u-email" data-person="email" value="${esc(f.email || '')}" placeholder="Email" autocomplete="off" ${fire && !isNew ? 'disabled' : ''}></div>
                 ${!fire ? `<div class="row"><input class="input-plain" id="u-username" data-person="username" value="${esc(f.username || '')}" placeholder="Username" autocomplete="off" autocapitalize="none"></div>` : ''}
                 ${isNew || !fire ? `<div class="row"><input class="input-plain" type="text" id="u-pass" data-person="password" value="${esc(f.password || '')}" placeholder="Temporary password (8+ characters)" autocomplete="new-password" spellcheck="false">
@@ -192,8 +201,8 @@
                     <input type="checkbox" class="switch" id="u-mustchange" data-person="mustChangePassword" ${f.mustChangePassword ? 'checked' : ''}></label>` : ''}
             </div>
             ${fire && !isNew ? `<p class="section-foot">Email can't be changed here. <button class="link inline" data-action="user-reset" data-email="${esc(f.email)}">Send a password reset email</button></p>`
-                : isNew ? '<p class="section-foot">Give the person this temporary password. When they first sign in, they must replace it with their own.</p>'
-                : '<p class="section-foot">Setting a new password here makes it temporary: they must change it at their next sign-in.</p>'}
+                : isNew ? '<p class="section-foot">Give the person this temporary password. When they first sign in with it, they must replace it with their own.</p>'
+                : '<p class="section-foot">Setting a new password here makes it temporary: they must change it at their next sign-in.</p>'}` : `<p class="section-foot">${isNew ? 'Nothing to hand over: tell the person to open the app and sign in with WhatsApp using this number.' : 'They sign in with a WhatsApp code sent to this number.'}</p>`}
             <div class="section-label">Role</div>
             <div class="group"><div class="row"><div class="seg grow" role="group" aria-label="Role">
                 ${['employee', 'manager', 'admin'].map(r => `<button type="button" class="${f.role === r ? 'on' : ''}" data-action="user-role" data-role="${r}">${A.ROLE[r]}</button>`).join('')}</div></div></div>
@@ -237,10 +246,14 @@
 
     Object.assign(A.actions, {
         'user-new': () => {
-            A.state.ui = { person: { id: Store.uid(), name: '', email: '', username: '', password: A.tempPassword(), role: 'employee', deptId: '', managerId: '', jobTitle: '', staffNo: '', active: true, mustChangePassword: true } };
+            A.state.ui = { person: { id: Store.uid(), name: '', phone: '', email: '', username: '', password: A.tempPassword(), passwordLogin: false, role: 'employee', deptId: '', managerId: '', jobTitle: '', staffNo: '', active: true, mustChangePassword: true } };
             A.go('user-edit', {}, { keepUi: true });
         },
-        'user-edit': el => { A.state.ui = { person: { ...Store.get('users', el.dataset.id) } }; A.go('user-edit', {}, { keepUi: true }); },
+        'user-edit': el => {
+            const p = Store.get('users', el.dataset.id);
+            A.state.ui = { person: { ...p, passwordLogin: !!(p.email || p.username || p.password) } };
+            A.go('user-edit', {}, { keepUi: true });
+        },
         'user-role': el => { A.state.ui.person.role = el.dataset.role; A.render(); },
         'user-genpass': () => { A.state.ui.person.password = A.tempPassword(); A.render(); },
         'user-reset': async el => {
@@ -253,11 +266,16 @@
             const fire = Store.mode === 'firebase';
             const errors = [];
             if (!f.name.trim()) errors.push('Enter the person\'s name.');
-            if (fire || f.email) { if (!validEmail(f.email)) errors.push('Enter a valid email address.'); }
-            if (!fire && !f.username.trim()) errors.push('Enter a username.');
-            if (!fire && Store.all('users').some(p => p.id !== f.id && p.username === f.username.trim().toLowerCase())) errors.push('That username is taken.');
+            const phone = (f.phone || '').trim() ? Store.normalizePhone(f.phone) : null;
+            if ((f.phone || '').trim() && !phone) errors.push('Enter a valid WhatsApp number, for example 9123 4567 (Oman) or +44… for other countries.');
+            if (phone && Store.all('users').some(p => p.id !== f.id && p.phone === phone)) errors.push(`${A.fmtPhone(phone)} already belongs to ${Store.all('users').find(p => p.id !== f.id && p.phone === phone).name}.`);
+            if (!(f.phone || '').trim() && !f.passwordLogin) errors.push('Enter a WhatsApp number, or turn on email and password sign-in.');
+            const pw = !!f.passwordLogin;
+            if (pw && (fire || f.email)) { if (!validEmail(f.email)) errors.push('Enter a valid email address.'); }
+            if (pw && !fire && !(f.username || '').trim()) errors.push('Enter a username.');
+            if (pw && !fire && Store.all('users').some(p => p.id !== f.id && p.username && p.username === f.username.trim().toLowerCase())) errors.push('That username is taken.');
             const saved = Store.get('users', f.id);
-            const newPassword = isNew || (!fire && saved && f.password !== saved.password);
+            const newPassword = pw && (isNew || (!fire && saved && f.password !== saved.password));
             if (newPassword && (f.password || '').length < 8) errors.push('Use a temporary password of at least 8 characters, or tap Generate.');
             if (f.role !== 'admin' && !f.managerId) errors.push('Choose a manager, so someone can review this person.');
             if (f.managerId && wouldLoop(f.id, f.managerId)) errors.push(`${A.nameOf(f.managerId)} reports to ${f.name.split(' ')[0] || 'this person'}, so they can't be their manager.`);
@@ -266,14 +284,21 @@
             }
             A.state.errors = errors;
             if (errors.length) { A.render(); return; }
-            const profile = { ...f, name: f.name.trim(), email: (f.email || '').trim().toLowerCase(), username: (f.username || '').trim().toLowerCase(), deptId: f.deptId || null, managerId: f.managerId || null };
+            const { passwordLogin, ...fields } = f;
+            const profile = { ...fields, name: f.name.trim(), phone, email: pw ? (f.email || '').trim().toLowerCase() : (fire && saved ? saved.email || '' : ''), username: pw ? (f.username || '').trim().toLowerCase() : '', deptId: f.deptId || null, managerId: f.managerId || null };
             if (newPassword) profile.mustChangePassword = true;
+            if (!pw) { delete profile.password; profile.mustChangePassword = false; }
             if (!isNew) {
                 if (fire) delete profile.password;
                 const managerChanged = (saved.managerId || null) !== profile.managerId;
                 A.save('users', { ...profile, managerId: saved.managerId || null }, 'Saved');
                 if (managerChanged) assignManager(f.id, profile.managerId);
                 A.go('profile', { id: f.id }, { tab: 'people' });
+                return;
+            }
+            if (!pw) {
+                A.save('users', profile, `${profile.name} added`);
+                A.go('profile', { id: profile.id }, { tab: 'people' });
                 return;
             }
             A.state.ui.busy = true;
@@ -314,7 +339,11 @@
             A.toast(t.value ? `${A.nameOf(t.dataset.assignMgr)} now reports to ${A.nameOf(t.value)}` : `${A.nameOf(t.dataset.assignMgr)} has no manager`);
             return true;
         }
-        if (t.dataset.person && A.state.ui.person) { A.state.ui.person[t.dataset.person] = t.type === 'checkbox' ? t.checked : t.value; return true; }
+        if (t.dataset.person && A.state.ui.person) {
+            A.state.ui.person[t.dataset.person] = t.type === 'checkbox' ? t.checked : t.value;
+            if (t.dataset.person === 'passwordLogin') A.render();
+            return true;
+        }
         if (t.dataset.dept && A.state.ui.dept) { A.state.ui.dept[t.dataset.dept] = t.value; return true; }
         return false;
     };

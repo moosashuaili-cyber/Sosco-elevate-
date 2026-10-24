@@ -12,16 +12,33 @@
             <button type="button" class="row" data-action="demo-fill" data-user="${key}">
                 <span class="icon-tile ${tile}">${ICON[icon]}</span>
                 <span class="grow"><span class="title">${name}</span><span class="sub">${sub}</span></span>${ICON.chevron}</button>`;
-        return `<div class="screen-login">
-            <div class="header">
-                <img class="app-icon" src="icons/icon.svg" alt="SOSCO ELEVATE">
-                <h1>SOSCO <span>Elevate</span></h1>
-                <div class="subtitle">Middle East Brigade &middot; MEB</div>
-            </div>
-            <div class="login-card">
-                <div class="welcome">Welcome back</div>
-                <div class="welcome-sub">Sign in to reviews, goals and exams</div>
-                <form id="loginForm" novalidate>
+        const mode = A.state.ui.loginMode || 'whatsapp';
+        const otp = A.state.ui.otp;
+        let card;
+        if (mode === 'whatsapp' && otp && otp.sent) {
+            card = `<form id="otpCodeForm" novalidate>
+                    <div class="otp-sent">${ICON.whatsapp}<span>Enter the 6-digit code we sent on WhatsApp to <b dir="ltr">${esc(A.fmtPhone(otp.phone))}</b>.
+                        <span class="muted">If you don't get it, check that this is the number your admin registered.</span></span></div>
+                    <input id="otp-code" class="otp-input" data-otp-code inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="••••••" aria-label="6-digit code" value="${esc(otp.code || '')}">
+                    <p id="loginError" class="form-error" role="alert" ${otp.error ? '' : 'hidden'}>${esc(otp.error || '')}</p>
+                    <button type="submit" class="btn btn-primary" id="otp-verify" ${otp.busy ? 'disabled' : ''}>${otp.busy ? 'Checking…' : 'Sign In'}</button>
+                    <div class="otp-links">
+                        <button type="button" class="link" data-action="otp-back">Change number</button>
+                        <button type="button" class="link" data-action="otp-resend" id="otp-resend" ${otp.wait > 0 ? 'disabled' : ''}>${otp.wait > 0 ? `Resend in ${otp.wait}s` : 'Resend code'}</button>
+                    </div>
+                </form>`;
+        } else if (mode === 'whatsapp') {
+            card = `<form id="otpPhoneForm" novalidate>
+                    <div class="form-group">
+                        <label for="otp-phone">WhatsApp number</label>
+                        <div class="input-wrap phone-wrap">${ICON.phone}<input id="otp-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="9123 4567" value="${esc((otp && otp.input) || '')}"></div>
+                        <p class="hint-text">Omani numbers can be typed without +968.</p>
+                    </div>
+                    <p id="loginError" class="form-error" role="alert" ${otp && otp.error ? '' : 'hidden'}>${esc((otp && otp.error) || '')}</p>
+                    <button type="submit" class="btn btn-whatsapp" id="otp-send" ${otp && otp.busy ? 'disabled' : ''}>${ICON.whatsapp} ${otp && otp.busy ? 'Sending…' : 'Send Code on WhatsApp'}</button>
+                </form>`;
+        } else {
+            card = `<form id="loginForm" novalidate>
                     <div class="form-group">
                         <label for="username">${demo ? 'Username or email' : 'Email'}</label>
                         <div class="input-wrap">${ICON.user}<input id="username" type="${demo ? 'text' : 'email'}" placeholder="${demo ? 'manager' : 'name@company.com'}" autocomplete="username" autocapitalize="none"></div>
@@ -33,7 +50,25 @@
                     <p id="loginError" class="form-error" role="alert" hidden></p>
                     <button type="submit" class="btn btn-primary" id="signin-btn">Sign In</button>
                     ${demo ? '' : '<button type="button" class="link forgot" data-action="forgot">Forgot password?</button>'}
-                </form>
+                </form>`;
+        }
+        const demoCode = mode === 'whatsapp' && otp && otp.sent && otp.demoCode;
+        return `<div class="screen-login">
+            ${demoCode ? `<div class="wa-banner" role="status">${ICON.whatsapp}<div><b>WhatsApp · SOSCO ELEVATE</b><span>${esc(otp.demoCode)} is your SOSCO ELEVATE sign-in code. Don't share it.</span>
+                <small>Demo mode: in the live app this arrives on the person's WhatsApp.</small></div></div>` : ''}
+            <div class="header">
+                <img class="app-icon" src="icons/icon.svg" alt="SOSCO ELEVATE">
+                <h1>SOSCO <span>Elevate</span></h1>
+                <div class="subtitle">Middle East Brigade &middot; MEB</div>
+            </div>
+            <div class="login-card">
+                <div class="welcome">Welcome back</div>
+                <div class="welcome-sub">Sign in to reviews, goals and exams</div>
+                <div class="seg login-seg" role="tablist" aria-label="Sign-in method">
+                    <button type="button" role="tab" class="${mode === 'whatsapp' ? 'on' : ''}" aria-selected="${mode === 'whatsapp'}" data-action="login-mode" data-mode="whatsapp">WhatsApp</button>
+                    <button type="button" role="tab" class="${mode === 'password' ? 'on' : ''}" aria-selected="${mode === 'password'}" data-action="login-mode" data-mode="password">${demo ? 'Password' : 'Email'}</button>
+                </div>
+                ${card}
             </div>
             ${demo ? `<div class="section-label">Demo accounts</div>
             <div class="group">
@@ -41,7 +76,7 @@
                 ${row('manager', 'Manager', 'Salim Al-Rawahi · WHM supervisor', 'tile-manager', 'briefcase')}
                 ${row('employee', 'Employee', 'Ahmed Al-Balushi · Wellhead technician', 'tile-employee', 'hardhat')}
             </div>
-            <p class="section-foot">Demo mode: data stays in this browser. Tap an account to fill in its details. Also try manager2 (manager123) and employee2–employee6 (employee123).</p>` : ''}
+            <p class="section-foot">Demo mode: data stays in this browser. Tap an account to fill in its ${mode === 'whatsapp' ? 'WhatsApp number' : 'details'}. ${mode === 'whatsapp' ? 'The code appears at the top of the screen.' : 'Also try manager2 (manager123) and employee2–employee6 (employee123).'}</p>` : ''}
         </div>`;
     };
 
@@ -270,6 +305,12 @@
 
     Object.assign(A.actions, {
         'demo-fill': el => {
+            if ((A.state.ui.loginMode || 'whatsapp') === 'whatsapp') {
+                const u = Store.get('users', el.dataset.user);
+                A.state.ui.otp = { input: A.fmtPhone(u && u.phone).replace('+968 ', '') };
+                A.render();
+                return;
+            }
             document.getElementById('username').value = el.dataset.user;
             document.getElementById('password').value = `${el.dataset.user}123`;
             document.getElementById('loginError').hidden = true;
@@ -284,6 +325,9 @@
             box.hidden = false;
         },
         'password-change': () => { A.state.ui = {}; A.go('password'); },
+        'login-mode': el => { A.state.ui.loginMode = el.dataset.mode; A.render(); },
+        'otp-back': () => { const o = A.state.ui.otp || {}; A.state.ui.otp = { input: o.input }; A.render(); },
+        'otp-resend': () => A.requestCode(),
         logout: async () => { await Store.signOut(); A.go('login', {}, { tab: 'home' }); },
     });
 })();

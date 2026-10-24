@@ -7,7 +7,7 @@
 //     seeded with sample people, reviews, goals and exams.
 const Store = (() => {
     const COLLECTIONS = ['users', 'departments', 'cycles', 'appraisals', 'goals', 'exams', 'examKeys', 'attempts'];
-    const PREFIX = 'sosco4.';
+    const PREFIX = 'sosco5.';
     const data = {};
     COLLECTIONS.forEach(c => { data[c] = []; });
     const listeners = new Set();
@@ -43,6 +43,18 @@ const Store = (() => {
     // The signed-in user is kept per tab, so a manager and an employee can be open side by side.
     const readSession = () => readKey(session() || { getItem: () => null }, PREFIX + 'session', null);
     const writeSession = v => writeKey(session() || { setItem() {} }, PREFIX + 'session', v);
+    // How this tab signed in: 'whatsapp' or 'password'.
+    const readMethod = () => readKey(session() || { getItem: () => null }, PREFIX + 'method', null);
+    const writeMethod = v => writeKey(session() || { setItem() {} }, PREFIX + 'method', v);
+
+    // E.164 number; 8-digit numbers are taken as Omani (+968). Same rule as functions/otp.js.
+    function normalizePhone(value) {
+        let s = String(value || '').replace(/[\s()-]/g, '');
+        if (s.startsWith('00')) s = '+' + s.slice(2);
+        if (/^[79]\d{7}$/.test(s)) s = '+968' + s;
+        if (/^968\d{8}$/.test(s)) s = '+' + s;
+        return /^\+[1-9]\d{7,14}$/.test(s) ? s : null;
+    }
 
     const Demo = {
         mode: 'demo',
@@ -61,10 +73,38 @@ const Store = (() => {
             const u = data.users.find(x => (x.username === name || x.email === name) && x.password === password && x.active !== false);
             if (!u) return 'Wrong username or password. Check both and try again.';
             writeSession(u.id);
+            writeMethod('password');
             current = u;
             return null;
         },
-        async signOut() { writeSession(null); current = null; },
+        async signOut() { writeSession(null); writeMethod(null); current = null; },
+
+        // Demo WhatsApp codes: kept in memory and shown on screen instead of being sent.
+        otps: {},
+        async requestOtp(phone) {
+            const now = Date.now();
+            const o = this.otps[phone] || { sends: [] };
+            o.sends = o.sends.filter(t => now - t < 3600e3);
+            if (o.lastSent && now - o.lastSent < 60e3) return { error: `Wait ${Math.ceil((60e3 - (now - o.lastSent)) / 1000)} seconds before asking for another code.` };
+            if (o.sends.length >= 5) return { error: 'Too many codes this hour. Try again later.' };
+            const user = data.users.find(u => u.phone === phone && u.active !== false);
+            const code = user ? String(Math.floor(Math.random() * 1e6)).padStart(6, '0') : null;
+            this.otps[phone] = { sends: [...o.sends, now], lastSent: now, code, uid: user && user.id, expiresAt: now + 5 * 60e3, attempts: 0 };
+            return { resendIn: 60, demoCode: code };
+        },
+        async verifyOtp(phone, code) {
+            const o = this.otps[phone];
+            if (!o || !o.code || Date.now() > o.expiresAt) return 'This code is wrong or has expired. Ask for a new one.';
+            if (o.attempts >= 5) return 'Too many wrong codes. Ask for a new one.';
+            if (o.code !== code) { o.attempts++; const left = 5 - o.attempts; return left ? `Wrong code. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many wrong codes. Ask for a new one.'; }
+            o.code = null;
+            const u = data.users.find(x => x.id === o.uid && x.active !== false);
+            if (!u) return 'This account can\'t sign in. Ask your admin.';
+            writeSession(u.id);
+            writeMethod('whatsapp');
+            current = u;
+            return null;
+        },
         async write(c) { writeLocal(PREFIX + c, data[c]); },
         async remove(c) { writeLocal(PREFIX + c, data[c]); },
         async createUser(profile, password) {
@@ -175,6 +215,7 @@ const Store = (() => {
         async signIn(login, password) {
             try {
                 await this.auth.signInWithEmailAndPassword(login.trim(), password);
+                writeMethod('password');
                 return null;
             } catch (e) {
                 if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'].includes(e.code)) {
@@ -185,7 +226,30 @@ const Store = (() => {
                 return e.message;
             }
         },
-        async signOut() { await this.auth.signOut(); },
+        async signOut() { writeMethod(null); await this.auth.signOut(); },
+
+        async requestOtp(phone) {
+            try {
+                return await this.call('requestOtp', { phone });
+            } catch (e) {
+                return { error: e.code === 'functions/not-found' ? 'WhatsApp sign-in isn\'t set up yet. Sign in with email instead.' : e.message || 'Couldn\'t send the code. Check your connection.' };
+            }
+        },
+        async verifyOtp(phone, code) {
+            let token;
+            try {
+                ({ token } = await this.call('verifyOtp', { phone, code }));
+            } catch (e) {
+                return e.message || 'Couldn\'t check the code. Check your connection.';
+            }
+            try {
+                await this.auth.signInWithCustomToken(token);
+            } catch (e) {
+                return 'Couldn\'t sign in. Try again.';
+            }
+            writeMethod('whatsapp');
+            return null;
+        },
         clean: doc => { const { id, password, ...rest } = doc; return rest; },
         async write(c, doc) { await this.db.collection(c).doc(doc.id).set(this.clean(doc)); },
         async remove(c, id) { await this.db.collection(c).doc(id).delete(); },
@@ -245,7 +309,8 @@ const Store = (() => {
             { id: 'wi', code: 'WI', name: 'Well Intervention' },
         ];
         const P = (id, name, role, deptId, managerId, jobTitle, staffNo) =>
-            ({ id, username: id, email: `${id}@demo.sosco`, password: role === 'employee' ? 'employee123' : `${role}123`, name, role, deptId, managerId, jobTitle, staffNo, active: true });
+            ({ id, username: id, email: `${id}@demo.sosco`, password: role === 'employee' ? 'employee123' : `${role}123`, name, role, deptId, managerId, jobTitle, staffNo, active: true, phone: DEMO_PHONES[id] });
+        const DEMO_PHONES = {'admin': '+96891230001', 'manager': '+96891230002', 'manager2': '+96891230003', 'employee': '+96891230004', 'employee2': '+96891230005', 'employee3': '+96891230006', 'employee4': '+96891230007', 'employee5': '+96891230008', 'employee6': '+96891230009'};
         const users = [
             P('admin', 'Admin', 'admin', 'ho', null, 'HR Administrator', 'S-1001'),
             P('manager', 'Salim Al-Rawahi', 'manager', 'whm', 'admin', 'WHM Supervisor', 'S-1012'),
@@ -257,7 +322,7 @@ const Store = (() => {
             P('employee5', 'Maryam Al-Kindi', 'employee', 'wi', 'manager2', 'Pumping Operator', 'S-1138'),
             P('employee6', 'Hamed Al-Busaidi', 'employee', 'wi', 'manager2', 'Slickline Operator', 'S-1142'),
             // A new starter who must choose a password at first sign-in.
-            { ...P('newhire', 'Nasser Al-Habsi', 'employee', 'whm', 'manager', 'Trainee Technician', 'S-1150'), password: 'welcome123', mustChangePassword: true },
+            { ...P('newhire', 'Nasser Al-Habsi', 'employee', 'whm', 'manager', 'Trainee Technician', 'S-1150'), password: 'welcome123', mustChangePassword: true, phone: '+96891230010' },
         ];
         const team = users.filter(u => u.role === 'employee' && !u.mustChangePassword);
 
@@ -395,6 +460,19 @@ const Store = (() => {
             return err;
         },
         async signOut() { await backend.signOut(); emit(); },
+        normalizePhone,
+        signedInWith: () => readMethod() || 'password',
+        // Returns { resendIn, demoCode? } or { error }.
+        requestOtp(phone) {
+            const p = normalizePhone(phone);
+            if (!p) return Promise.resolve({ error: 'Enter a valid mobile number, for example 9123 4567.' });
+            return backend.requestOtp(p).then(r => ({ ...r, phone: p }));
+        },
+        async verifyOtp(phone, code) {
+            const err = await backend.verifyOtp(normalizePhone(phone), code);
+            if (!err) emit();
+            return err;
+        },
         async createUser(profile, password) {
             const u = await backend.createUser(profile, password);
             upsert('users', u);

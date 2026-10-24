@@ -122,6 +122,72 @@ retries it on Anthropic's recommended fallback model. Questions Claude writes ar
 suggestions: managers should check each one, especially anything that depends on a
 company or client procedure, before sending the exam.
 
+## 7. WhatsApp sign-in
+
+People sign in by typing their mobile number and the 6-digit code they receive on
+WhatsApp, so there's no password to remember. Email and password sign-in still works
+for anyone who has it.
+
+### 7a. Meta (WhatsApp Business)
+
+1. **Business account:** at [business.facebook.com](https://business.facebook.com), create
+   (or open) SOSCO's business and complete **business verification**.
+2. **App:** at [developers.facebook.com](https://developers.facebook.com) → **Create app** →
+   type **Business** → add the **WhatsApp** product, linked to that business.
+3. **Sender number:** WhatsApp → **API Setup** → **Add phone number**. Your Omani number
+   works, but a number can't be on the normal WhatsApp or WhatsApp Business app and
+   the API at the same time: either use a SIM that isn't on WhatsApp, or delete the
+   WhatsApp account on that number first (back up any chats). Meta checks the number by
+   SMS or call. Copy the **Phone number ID** shown there.
+4. **Message template:** WhatsApp Manager → **Message templates** → **Create** →
+   category **Authentication** → name `sosco_login_code`, language **English** → choose
+   the **Copy code** button and tick “add expiry time” (5 minutes). Submit; approval
+   is usually quick. (For Arabic instead, create it in Arabic and set
+   `WHATSAPP_OTP_LANG=ar` below.)
+5. **Access token that doesn't expire:** Business settings → **Users → System users** →
+   add a system user (Admin) → **Assign assets**: the app and the WhatsApp account
+   (full control) → **Generate token** with `whatsapp_business_messaging` and
+   `whatsapp_business_management`, expiry **Never**. Keep it secret.
+6. **Billing:** add a payment method in WhatsApp Manager. Meta charges each
+   authentication message at its rate for the recipient's country (Oman for your staff).
+
+### 7b. Firebase
+
+1. Store the token as a secret (it never goes in a file):
+
+   ```bash
+   firebase functions:secrets:set WHATSAPP_TOKEN
+   ```
+
+2. Let the functions sign people in: in [Google Cloud console](https://console.cloud.google.com)
+   for the same project, enable the **IAM Service Account Credentials API**, then under
+   **IAM** give the account `PROJECT_NUMBER-compute@developer.gserviceaccount.com` the
+   role **Service Account Token Creator**. Without it, the code arrives but signing in
+   fails.
+3. Deploy (from the repository root):
+
+   ```bash
+   cd functions && npm install && cd ..
+   firebase deploy --only functions,firestore:rules
+   ```
+
+   The CLI asks for `WHATSAPP_PHONE_NUMBER_ID` (from step 7a.3) and offers defaults for
+   the template name (`sosco_login_code`), language (`en`) and Meta Graph API version.
+   Use the newest Graph API version Meta lists in its docs.
+4. **Add numbers:** People → person → **Edit Person** → **WhatsApp number**. Omani numbers
+   can be typed without +968; other countries need the + and country code. New people can
+   be added with only a number: they open the app and sign in with WhatsApp.
+
+### Limits and safety
+
+- Codes are 6 digits, work once, and expire after 5 minutes; 5 wrong tries cancel a code.
+- A number can request a code once a minute and 5 times an hour.
+- Codes are stored only as salted hashes, in a collection no app user can read.
+- The sign-in screen gives the same reply whether or not a number is registered, so it
+  can't be used to find out who works at SOSCO. Codes are only sent to registered,
+  active people, which also keeps Meta charges down.
+- People who sign in with WhatsApp aren't asked to replace a temporary password.
+
 ## How it behaves
 
 - **Review flow:** self-assessment → manager review → employee sign-off → complete.

@@ -1928,8 +1928,139 @@
             opacity: 0.5;
         }
 
+        /* ---------- WhatsApp sign-in ---------- */
+        .login-seg {
+            margin-bottom: 18px;
+        }
+
+        .btn-whatsapp {
+            background: #13803f;
+            color: #ffffff;
+        }
+
+        .btn-whatsapp svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .hint-text {
+            font-size: 13px;
+            color: var(--label-2);
+            margin: 6px 0 0 4px;
+        }
+
+        .phone-wrap input {
+            letter-spacing: 0.5px;
+        }
+
+        .otp-sent {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            font-size: 15px;
+            line-height: 1.4;
+            margin-bottom: 16px;
+        }
+
+        .otp-sent svg {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            color: #13803f;
+        }
+
+        .otp-sent .muted {
+            display: block;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .otp-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 14px;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            background: var(--fill);
+            color: var(--label);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 30px;
+            font-weight: 600;
+            letter-spacing: 12px;
+            text-align: center;
+            outline: none;
+        }
+
+        .otp-input:focus {
+            border-color: var(--blue);
+        }
+
+        .otp-links {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 14px;
+        }
+
+        .otp-links .link:disabled {
+            color: var(--label-3);
+            cursor: default;
+        }
+
+        .wa-banner {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: var(--card);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border: 0.5px solid var(--separator);
+            font-size: 14px;
+        }
+
+        .wa-banner > svg {
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+            color: #13803f;
+        }
+
+        .wa-banner b, .wa-banner span, .wa-banner small {
+            display: block;
+        }
+
+        .wa-banner b {
+            font-size: 13px;
+        }
+
+        .wa-banner small {
+            margin-top: 4px;
+            color: var(--label-2);
+        }
+
+        .phone-input {
+            flex: 0 1 150px;
+            text-align: right;
+        }
+
+        .phone-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .phone-line svg {
+            width: 14px;
+            height: 14px;
+            color: #13803f;
+        }
+
+        .notice > svg[viewBox="0 0 24 24"]:not([stroke]) {
+            color: #13803f;
+        }
+
         @media (prefers-reduced-motion: reduce) {
-            .toast, .ring-bar, .chevron, .typing span { animation: none; transition: none; }
+            .toast, .ring-bar, .chevron, .typing span, .wa-banner { animation: none; transition: none; }
         }
     </style>
 

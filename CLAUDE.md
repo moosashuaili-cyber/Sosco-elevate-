@@ -18,7 +18,8 @@ Sosco-elevate-/
 ├── firebase.json                # Hosting (sosco-elevate/) + Firestore rules
 ├── firestore.rules              # Role-based access: admin / manager / employee
 ├── functions/                   # Cloud Function `claude`: calls the Claude API with a server-side key
-│   └── index.js                 # (ai-tasks.js is copied in from sosco-elevate/js at deploy)
+│   ├── index.js                 # (ai-tasks.js is copied in from sosco-elevate/js at deploy)
+│   └── otp.js                   # requestOtp / verifyOtp: WhatsApp sign-in codes via Meta Cloud API
 └── sosco-elevate/               # The web app (deployed as-is)
     ├── index.html               # App shell + all CSS (tokens at the top)
     ├── manifest.webmanifest     # Home-screen install
@@ -45,7 +46,9 @@ No build step or dependencies. Open `sosco-elevate/index.html` in a browser.
 Demo accounts (demo mode only, seeded in `js/store.js`):
 `admin`/`admin123`, `manager`/`manager123`, `manager2`/`manager123`,
 `employee` … `employee6` / `employee123`, and `newhire`/`welcome123` (must change
-password at first sign-in). "Reset demo data" on Home restores the seed.
+password at first sign-in). Every demo account also has a WhatsApp number
+(+968 9123 0001 … 0010); in demo mode the code is shown on screen instead of sent.
+"Reset demo data" on Home restores the seed.
 
 To go live, follow SETUP.md.
 
@@ -125,6 +128,11 @@ To go live, follow SETUP.md.
   request shape (UMD: browser global `SOSCO_AI_TASKS`, `require` in Node). Never put an
   API key in the repo; the live app uses the `ANTHROPIC_API_KEY` function secret.
   Questions carry optional `text_ar` / `options_ar`.
+- **WhatsApp sign-in:** `users.phone` holds an E.164 number (8-digit input = Oman).
+  `functions/otp.js` sends a code with an Authentication template and returns a Firebase
+  custom token; `otps/{phone}` is server-only. `Store.signedInWith()` is 'whatsapp' or
+  'password'; the forced password change only applies to password sign-ins. People can
+  exist with only a phone (no Auth account until their first WhatsApp sign-in).
 - When changing who can read or write something, update `firestore.rules` and the
   queries in `store.js` together.
 
